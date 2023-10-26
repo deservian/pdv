@@ -4,7 +4,7 @@
 	orientation: 'vertical'
 	canvas.before:
 		Color:
-			rgba: hex('#159F9A')
+			rgba: hex('#800000')
 		Rectangle:
 			size: self.size
 			pos: self.pos
@@ -23,10 +23,10 @@
 		BoxLayout:
 			size_hint_x: .4
 			orientation: 'vertical'
-			Label: 
-				size_hint_y: .15
-				text: 'Bienvenido'
-				color: (0,0,0,1)
+			Image: 
+				size_hint_y: .35
+				source: 'C:/Users/Diego/Documents/UPAP/Tesis/logo-Divino-ninho.png'
+				#color: (0,0,0,1)
 			Label:
 				id: signin_notificacion
 				size_hint_y: .15
@@ -53,7 +53,10 @@
 				text: 'Ingresar'
 				on_release: root.verificar_usuario(username.text, password.text)
 			Label:
-				size_hint_y: .4
+				text: 'Bienvenido'
+				font_name: 'DejaVuSans'
+				size_hint_y: .2
+				color: (0,0,0,1)
 		Label:
 			size_hint_x: .3
 	BoxLayout:
