@@ -354,7 +354,7 @@ class VentasWindow(BoxLayout):
 			self.parent.parent.current='scrn_signin'
 
 	def poner_usuario(self, usuario):
-		self.ids.bienvenido_label.text='Bienvenido '+usuario['nombre']
+		self.ids.bienvenido_label.text='Bienvenido '+ usuario['nombre']
 		if usuario['tipo']=='trabajador':
 			self.ids.admin_boton.disabled=True
 			self.ids.admin_boton.text=''
