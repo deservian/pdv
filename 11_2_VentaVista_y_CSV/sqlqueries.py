@@ -40,41 +40,97 @@ class QueriesSQLite:
 
         tabla_productos = """
         CREATE TABLE IF NOT EXISTS productos(
-         codigo TEXT PRIMARY KEY, 
-         nombre TEXT NOT NULL, 
-         precio REAL NOT NULL, 
-         cantidad INTEGER NOT NULL
+        codigo TEXT PRIMARY KEY, 
+        nombre TEXT NOT NULL, 
+        precio REAL NOT NULL, 
+        cantidad INTEGER NOT NULL
         );
         """
 
         tabla_usuarios = """
         CREATE TABLE IF NOT EXISTS usuarios(
-         username TEXT PRIMARY KEY, 
-         nombre TEXT NOT NULL, 
-         password TEXT NOT NULL,
-         tipo TEXT NOT NULL
+        username TEXT PRIMARY KEY, 
+        nombre TEXT NOT NULL, 
+        password TEXT NOT NULL,
+        tipo TEXT NOT NULL
         );
         """
 
         tabla_ventas = """
         CREATE TABLE IF NOT EXISTS ventas(
-         id INTEGER PRIMARY KEY, 
-         total REAL NOT NULL, 
-         fecha TIMESTAMP,
-         username TEXT  NOT NULL, 
-         FOREIGN KEY(username) REFERENCES usuarios(username)
+        id INTEGER PRIMARY KEY, 
+        total REAL NOT NULL, 
+        fecha TIMESTAMP,
+        username TEXT  NOT NULL, 
+        FOREIGN KEY(username) REFERENCES usuarios(username)
         );
         """
 
         tabla_ventas_detalle = """
         CREATE TABLE IF NOT EXISTS ventas_detalle(
-         id INTEGER PRIMARY KEY, 
-         id_venta TEXT NOT NULL, 
-         precio REAL NOT NULL,
-         producto TEXT NOT NULL,
-         cantidad INTEGER NOT NULL,
-         FOREIGN KEY(id_venta) REFERENCES ventas(id),
-         FOREIGN KEY(producto) REFERENCES productos(codigo)
+        id INTEGER PRIMARY KEY, 
+        id_venta TEXT NOT NULL, 
+        precio REAL NOT NULL,
+        producto TEXT NOT NULL,
+        cantidad INTEGER NOT NULL,
+        FOREIGN KEY(id_venta) REFERENCES ventas(id),
+        FOREIGN KEY(producto) REFERENCES productos(codigo)
+        );
+        """
+
+        tabla_categorias = """
+        CREATE TABLE IF NOT EXISTS categorias(
+        id INTEGER PRIMARY KEY,
+        nombre TEXT NOT NULL
+        );
+        """
+
+        tabla_proveedores = """
+        CREATE TABLE IF NOT EXISTS proveedores(
+        id INTEGER PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        contacto TEXT,
+        telefono TEXT,
+        email TEXT
+        );
+        """
+
+        tabla_inventario = """
+        CREATE TABLE IF NOT EXISTS inventario(
+        id INTEGER PRIMARY KEY,
+        codigo_producto TEXT NOT NULL,
+        tipo_movimiento TEXT NOT NULL,
+        cantidad INTEGER NOT NULL,
+        fecha TIMESTAMP,
+        FOREIGN KEY(codigo_producto) REFERENCES productos(codigo)
+        );
+        """
+
+        tabla_descuentos = """
+        CREATE TABLE IF NOT EXISTS descuentos(
+        id INTEGER PRIMARY KEY,
+        nombre TEXT NOT NULL,
+        porcentaje REAL NOT NULL,
+        fecha_inicio TIMESTAMP,
+        fecha_fin TIMESTAMP
+        );
+        """
+
+        tabla_metodos_pago = """
+        CREATE TABLE IF NOT EXISTS metodos_pago(
+        id INTEGER PRIMARY KEY,
+        nombre TEXT NOT NULL
+        );
+        """
+
+        tabla_ventas_pagos = """
+        CREATE TABLE IF NOT EXISTS ventas_pagos(
+        id INTEGER PRIMARY KEY,
+        id_venta INTEGER NOT NULL,
+        metodo_pago_id INTEGER NOT NULL,
+        monto REAL NOT NULL,
+        FOREIGN KEY(id_venta) REFERENCES ventas(id),
+        FOREIGN KEY(metodo_pago_id) REFERENCES metodos_pago(id)
         );
         """
 
@@ -82,6 +138,12 @@ class QueriesSQLite:
         QueriesSQLite.execute_query(connection, tabla_usuarios, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_ventas, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_ventas_detalle, tuple()) 
+        QueriesSQLite.execute_query(connection, tabla_categorias, tuple()) 
+        QueriesSQLite.execute_query(connection, tabla_proveedores, tuple()) 
+        QueriesSQLite.execute_query(connection, tabla_inventario, tuple()) 
+        QueriesSQLite.execute_query(connection, tabla_descuentos, tuple()) 
+        QueriesSQLite.execute_query(connection, tabla_metodos_pago, tuple()) 
+        QueriesSQLite.execute_query(connection, tabla_ventas_pagos, tuple()) 
 
 
 

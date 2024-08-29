@@ -109,6 +109,40 @@
         size_hint_x: .2
         color: (0,0,0,1)
 
+
+<SelectableProveedoresLabel>:
+    # Draw a background to indicate selection
+    canvas.before:
+        Color:
+            rgba: hex('#C9F3EF') if self.selected else hex('#F0F0F0')
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    Label:
+    	id: _hashtag
+    	size_hint_x: .05
+    	color: (0,0,0,1)
+    Label:
+    	id: _id
+    	size_hint_x: .05
+    	color: (0,0,0,1)
+    Label:
+    	id: _nombre
+    	size_hint_x: .25
+    	color: (0,0,0,1)
+    Label:
+    	id: _contacto
+    	size_hint_x: .25
+    	color: (0,0,0,1)
+    Label:
+    	id: _telefono
+    	size_hint_x: .15
+    	color: (0,0,0,1)
+    Label:
+    	id: _email
+    	size_hint_x: .25
+    	color: (0,0,0,1)
+
 <ItemVentaLabel>:
     canvas.before:
         Color:
@@ -154,7 +188,7 @@
 		    	id: producto_info_1
 	    Label:
 	    	id: no_valid_notif
-	    	size_hint_y: .1
+	    	size_hint_y: .2
 	    TextInput: 
 			size_hint_y: .2
 			id: producto_codigo
@@ -184,6 +218,59 @@
 		    Button:
 		    	text: 'Aceptar'
 		    	on_release: root.verificar(producto_codigo.text, producto_nombre.text, producto_cantidad.text, producto_precio.text)
+		    Button:
+		        text: 'Salir sin hacer cambios'
+		        on_press: root.dismiss()
+
+<ProveedorPopup>:
+    size_hint: .5, .5
+    auto_dismiss: False
+    title: ''
+    BoxLayout:
+	    orientation: 'vertical'
+	    padding: .05
+	    BoxLayout:
+	    	size_hint_y: .1
+		    Label:
+		    	id: proveedores_info_1
+	    Label:
+	    	id: no_valid_notif
+	    	size_hint_y: .2
+	    TextInput: 
+			size_hint_y: .15
+			id: proveedores_id
+			multiline: False
+			hint_text: 'id'
+			write_tab: False
+		TextInput: 
+			id: proveedores_nombre
+			size_hint_y: .2
+			multiline: False
+			hint_text: 'Nombre'
+			write_tab: False
+		TextInput: 
+			id: proveedores_contacto
+			size_hint_y: .15
+			multiline: False
+			hint_text: 'Contacto'
+			write_tab: False
+		BoxLayout:
+			size_hint_y: .2
+			TextInput: 
+				id: proveedores_telefono
+				multiline: False
+				hint_text: 'Teléfono'
+				write_tab: False
+			TextInput: 
+				id: proveedores_email
+				multiline: False
+				hint_text: 'email'
+				write_tab: False
+		BoxLayout:
+			size_hint_y: .1
+		    Button:
+		    	text: 'Aceptar'
+		    	on_release: root.verificar(proveedores_id.text, proveedores_nombre.text, proveedores_contacto.text, proveedores_telefono.text, proveedores_email.text)
 		    Button:
 		        text: 'Salir sin hacer cambios'
 		        on_press: root.dismiss()
@@ -284,6 +371,51 @@
 				text: 'Eliminar Producto'
 				on_release: root.eliminar_producto()
 
+<VistaProveedores>:
+	name: 'Proveedores'
+	BoxLayout:
+		BoxLayout:
+			padding: .5
+			orientation: 'vertical'
+			BoxLayout:
+				size_hint_y: .05
+				spacing: .5
+				LabelOscuro:
+					text: '#'
+					size_hint_x: .05
+				LabelOscuro:
+					text: 'id'
+					size_hint_x: .05
+				LabelOscuro:
+					text: 'Nombre Proveedor'
+					size_hint_x: .25
+				LabelOscuro:
+					text: 'Contacto'
+					size_hint_x: .25
+				LabelOscuro:
+					text: 'telefono'
+					size_hint_x: .15
+				LabelOscuro:
+					text: 'email'
+					size_hint_x: .25
+			AdminRV:
+				id: rv_proveedores
+				size_hint_y: .89
+				viewclass: 'SelectableProveedoresLabel'
+		BoxLayout:
+			spacing: .5
+			size_hint_x: .2
+			orientation: 'vertical'
+			padding: .5
+			BotonOscuro:
+				text: 'Agregar Proveedor'
+				on_release: root.agregar_proveedores()
+			BotonOscuro:
+				text: 'Modificar Proveedor'
+				on_release: root.modificar_proveedores()
+			BotonOscuro:
+				text: 'Eliminar Proveedor'
+				on_release: root.eliminar_proveedores()
 
 <VistaUsuarios>:
 	name: 'Usuarios'
@@ -482,6 +614,11 @@
         size_hint_y: None
         height: 44
         on_release: root.vista(self.text)
+    Button:
+        text: 'Proveedores'
+        size_hint_y: None
+        height: 44
+        on_release: root.vista(self.text)
 
 
 <AdminWindow>:
@@ -539,6 +676,8 @@
 			id: vista_usuarios
 		VistaVentas:
 			id: vista_ventas
+		VistaProveedores:
+			id: vista_proveedores
 
     BoxLayout:
     	size_hint_y:.05

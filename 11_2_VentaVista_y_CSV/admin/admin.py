@@ -52,6 +52,35 @@ class SelectableProductoLabel(RecycleDataViewBehavior, BoxLayout):
 		else:
 			rv.data[index]['seleccionado']=False
 
+class SelectableProveedoresLabel(RecycleDataViewBehavior, BoxLayout):
+	index = None
+	selected = BooleanProperty(False)
+	selectable = BooleanProperty(True)
+
+	def refresh_view_attrs(self, rv, index, data):
+		self.index = index
+		self.ids['_hashtag'].text = str(1+index)
+		self.ids['_id'].text = str(data['id'])
+		self.ids['_nombre'].text = data['nombre'].capitalize()
+		self.ids['_contacto'].text = data['contacto'].capitalize()
+		self.ids['_telefono'].text = str(data['telefono'])
+		self.ids['_email'].text = data['email']
+		return super(SelectableProveedoresLabel, self).refresh_view_attrs(
+            rv, index, data)
+
+	def on_touch_down(self, touch):
+		if super(SelectableProveedoresLabel, self).on_touch_down(touch):
+			return True
+		if self.collide_point(*touch.pos) and self.selectable:
+			return self.parent.select_with_touch(self.index, touch)
+
+	def apply_selection(self, rv, index, is_selected):
+		self.selected = is_selected
+		if is_selected:
+			rv.data[index]['seleccionado']=True
+		else:
+			rv.data[index]['seleccionado']=False
+
 class SelectableUsuarioLabel(RecycleDataViewBehavior, BoxLayout):
 	index = None
 	selected = BooleanProperty(False)
@@ -217,6 +246,102 @@ class ProductoPopup(Popup):
 			self.agregar_callback(True, validado)
 			self.dismiss()
 
+#Agregadoproveedores
+
+class ProveedorPopup(Popup):
+	def __init__(self, agregar_callback, **kwargs):
+		super(ProveedorPopup, self).__init__(**kwargs)
+		self.agregar_callback=agregar_callback
+
+	def abrir(self, agregar, producto=None):
+		if agregar:
+			self.ids.proveedores_info_1.text='Agregar producto nuevo'
+			self.ids.proveedores_id.disabled=False
+		else:
+			self.ids.proveedores_info_1.text='Modificar producto'
+			self.ids.proveedores_id.text = str(producto['id'])
+			self.ids.proveedores_id.disabled=True
+			self.ids.proveedores_nombre.text=str(producto['nombre'])
+			self.ids.proveedores_contacto.text=str(producto['contacto'])
+			self.ids.proveedores_telefono.text=str(producto['telefono'])
+			self.ids.proveedores_email.text=str(producto['email'])
+		self.open()
+
+	def verificar(self, proveedores_id, proveedores_nombre, proveedores_contacto, proveedores_telefono, proveedores_email):
+		alert1='Falta: '
+		alert2=''
+		validado={}
+		if not proveedores_id:
+			alert1+='id. '
+			validado['di']=False
+		else:
+			try:
+				numeric=int(proveedores_id)
+				validado['id']=proveedores_id
+			except:
+				alert2+='id no válido. '
+				validado['id']=False
+
+		if not proveedores_nombre:
+			alert1+='Nombre. '
+			validado['nombre']=False
+		else:
+			validado['nombre']=proveedores_nombre.lower()
+
+		if not proveedores_contacto:
+			alert1+='Contacto. '
+			validado['contacto']=False
+		else:
+			validado['contacto']=proveedores_contacto.lower()
+
+		if not proveedores_telefono:
+			alert1+='Telefono. '
+			validado['telefono']=False
+		else:
+			validado['telefono']=proveedores_telefono.lower()
+		#	try:
+		#		numeric=float(proveedores_telefono)
+		#		validado['telefono']=proveedores_telefono
+		#	except:
+		#		alert2+='Teléfono no válido. '
+		#		validado['telefono']=False
+			
+		if not proveedores_email:
+			alert1+='Email. '
+			validado['email']=False
+		else:
+			validado['email']=proveedores_email.lower()
+
+		valores=list(validado.values())
+
+		if False in valores:
+			self.ids.no_valid_notif.text=alert1+alert2
+		else:
+			self.ids.no_valid_notif.text='Validado'
+			validado['email']=str(validado['email'])
+			validado['telefono']=float(validado['telefono'])
+			self.agregar_callback(True, validado)
+			self.dismiss()
+
+	
+#agregadoProveedores
+
+	def agregar_proveedores(self, agregar=False, validado=None):
+		if agregar:
+			producto_tuple=tuple(validado.values())
+			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			crear_proveedor="""
+			INSERT INTO
+				proveedores (id, nombre, contacto, telefono, email)
+			VALUES
+				(?, ?, ?, ?, ?);
+			"""
+			QueriesSQLite.execute_query(connection, crear_proveedor, producto_tuple)
+			self.ids.rv_productos.data.append(validado)
+			self.ids.rv_productos.refresh_from_data()
+		else:
+			popup=ProveedorPopup(self.agregar_proveedores)
+			popup.abrir(True)
 
 class VistaProductos(Screen):
 	def __init__(self, **kwargs):
@@ -290,6 +415,81 @@ class VistaProductos(Screen):
 					producto_viejo['cantidad']=producto_nuevo['cantidad']
 					break
 		self.ids.rv_productos.refresh_from_data()
+
+
+class VistaProveedores(Screen):
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
+		Clock.schedule_once(self.cargar_proveedores, 1)
+
+	def cargar_proveedores(self, *args):
+		_proveedores=[]
+		connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+		inventario_sql=QueriesSQLite.execute_read_query(connection, "SELECT * from proveedores")
+		if inventario_sql: # agregado!!!
+			for proveedores in inventario_sql:
+				_proveedores.append({'id': proveedores[0], 'nombre': proveedores[1], 'contacto': proveedores[2], 'telefono': proveedores[3],  'email': proveedores[4]})
+		self.ids.rv_proveedores.agregar_datos(_proveedores)
+
+	def agregar_proveedores(self, agregar=False, validado=None):
+		if agregar:
+			proveedores_tuple=tuple(validado.values())
+			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			crear_proveedor="""
+			INSERT INTO
+				proveedores (id, nombre, contacto, telefono, email)
+			VALUES
+				(?, ?, ?, ?, ?);
+			"""
+			QueriesSQLite.execute_query(connection, crear_proveedor, proveedores_tuple)
+			self.ids.rv_proveedores.data.append(validado)
+			self.ids.rv_proveedores.refresh_from_data()
+		else:
+			popup=ProveedorPopup(self.agregar_proveedores)
+			popup.abrir(True)
+
+	def modificar_proveedores(self, modificar=False, validado=None):
+		indice=self.ids.rv_proveedores.dato_seleccionado()
+		if modificar:
+			proveedores_tuple=(validado['id'], validado['nombre'], validado['contacto'], validado['telefono'], validado['email'])
+			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			actualizar="""
+			UPDATE
+				proveedores
+			SET
+				nombre=?, contacto=?, telefono=?, email=?
+			WHERE
+				id=?
+			"""
+			QueriesSQLite.execute_query(connection, actualizar, proveedores_tuple)
+			self.ids.rv_proveedores.data[indice]['nombre']=validado['nombre']
+			self.ids.rv_proveedores.data[indice]['contacto']=validado['contacto']
+			self.ids.rv_proveedores.data[indice]['telefono']=validado['telefono']
+			self.ids.rv_proveedores.data[indice]['email']=validado['email']
+			self.ids.rv_proveedores.refresh_from_data()
+		else:
+			if indice>=0:
+				proveedores=self.ids.rv_proveedores.data[indice]
+				popup=ProveedorPopup(self.modificar_proveedores)
+				popup.abrir(False, proveedores)
+
+	def eliminar_proveedores(self):
+		indice=self.ids.rv_proveedores.dato_seleccionado()
+		if indice>=0:
+			proveedores_tuple=(self.ids.rv_proveedores.data[indice]['id'],)
+			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			borrar= """DELETE from proveedores WHERE id =? """
+			QueriesSQLite.execute_query(connection, borrar, proveedores_tuple)
+			self.ids.rv_proveedores.data.pop(indice)
+			self.ids.rv_proveedores.refresh_from_data()
+
+	def actualizar_proveedores(self, proveedores_actualizado):
+		for proveedores_nuevo in proveedores_actualizado:
+			for proveedores_viejo in self.ids.rv_proveedores.data:
+				if proveedores_nuevo['id']==proveedores_viejo['id']:
+					proveedores_viejo['telefono']=proveedores_nuevo['telefono']
+					break
+		self.ids.rv_proveedores.refresh_from_data()
 
 
 class UsuarioPopup(Popup):
