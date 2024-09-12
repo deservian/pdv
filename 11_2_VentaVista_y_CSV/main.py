@@ -6,7 +6,7 @@ from signin.signin import SigninWindow
 from admin.admin import AdminWindow
 from ventas.ventas import VentasWindow
 
-# agregado queriessqlite.create_tables()
+# agregado queriessqlite.creat89e_tables()
 class MainWindow(BoxLayout):
 	QueriesSQLite.create_tables()
 	def __init__(self, **kwargs):

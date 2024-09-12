@@ -69,12 +69,14 @@ class QueriesSQLite:
         tabla_ventas_detalle = """
         CREATE TABLE IF NOT EXISTS ventas_detalle(
         id INTEGER PRIMARY KEY, 
-        id_venta TEXT NOT NULL, 
+        id_venta INTEGER NOT NULL, 
         precio REAL NOT NULL,
         producto TEXT NOT NULL,
         cantidad INTEGER NOT NULL,
+        cliente_ci TEXT NOT NULL,
         FOREIGN KEY(id_venta) REFERENCES ventas(id),
-        FOREIGN KEY(producto) REFERENCES productos(codigo)
+        FOREIGN KEY(producto) REFERENCES productos(codigo),
+        FOREIGN KEY(cliente_ci) REFERENCES clientes(ci)
         );
         """
 

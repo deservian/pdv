@@ -22,12 +22,16 @@ import time
 
 Builder.load_file('admin/admin.kv')
 
-# Supongamos que data['nacimiento'] es una fecha en formato de string 'YYYY-MM-DD'
-data = {'nacimiento': '2000-01-01'}
-# Convertir el string a un objeto datetime
-fecha_nacimiento = datetime.strptime(data['nacimiento'], '%Y-%m-%d')
-# Convertir a timestamp
-timestamp_nacimiento = fecha_nacimiento.timestamp()
+def fecha_a_timestamp(fecha_str):
+    fecha = datetime.strptime(fecha_str, '%Y-%m-%d')
+    return fecha.timestamp()
+
+# # Supongamos que data['nacimiento'] es una fecha en formato de string 'YYYY-MM-DD'
+# data = {'nacimiento': '2000-01-01'}
+# # Convertir el string a un objeto datetime
+# fecha_nacimiento = datetime.strptime(data['nacimiento'], '%Y-%m-%d')
+# # Convertir a timestamp
+# timestamp_nacimiento = fecha_nacimiento.timestamp()
 
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
                                  RecycleBoxLayout):
@@ -62,33 +66,42 @@ class SelectableProductoLabel(RecycleDataViewBehavior, BoxLayout):
 			rv.data[index]['seleccionado']=False
 
 class SelectableClientesLabel(RecycleDataViewBehavior, BoxLayout):
-	index = None
-	selected = BooleanProperty(False)
-	selectable = BooleanProperty(True)
+    index = None
+    selected = BooleanProperty(False)
+    selectable = BooleanProperty(True)
 
-	def refresh_view_attrs(self, rv, index, data):
-		self.index = index
-		self.ids['_hashtag'].text = str(1+index)
-		self.ids['_ci'].text = str(data['ci'])
-		self.ids['_nombre'].text = data['nombre'].capitalize()
-		self.ids['_ciudad'].text = data['ciudad'].capitalize()
-		self.ids['_telefono'].text = str(data['telefono'])
-		self.ids['_nacimiento'].text = str(timestamp_nacimiento)
-		return super(SelectableClientesLabel, self).refresh_view_attrs(
-            rv, index, data)
+    def refresh_view_attrs(self, rv, index, data):
+        self.index = index
+        self.ids['_hashtag'].text = str(1 + index)
+        self.ids['_ci'].text = str(data['ci'])
+        self.ids['_nombre'].text = data['nombre'].capitalize()
+        self.ids['_ciudad'].text = data['ciudad'].capitalize()
+        self.ids['_telefono'].text = str(data['telefono'])
 
-	def on_touch_down(self, touch):
-		if super(SelectableClientesLabel, self).on_touch_down(touch):
-			return True
-		if self.collide_point(*touch.pos) and self.selectable:
-			return self.parent.select_with_touch(self.index, touch)
+        # Convertir la fecha en formato cadena a un timestamp
+        fecha_nacimiento_str = data['nacimiento']
+        try:
+            timestamp_nacimiento = fecha_a_timestamp(fecha_nacimiento_str)
+            fecha_nacimiento = datetime.fromtimestamp(timestamp_nacimiento)
+            self.ids['_nacimiento'].text = fecha_nacimiento.strftime('%Y-%m-%d')
+        except ValueError:
+            self.ids['_nacimiento'].text = 'Fecha no válida'
+        
+        return super(SelectableClientesLabel, self).refresh_view_attrs(rv, index, data)
 
-	def apply_selection(self, rv, index, is_selected):
-		self.selected = is_selected
-		if is_selected:
-			rv.data[index]['seleccionado']=True
-		else:
-			rv.data[index]['seleccionado']=False
+    def on_touch_down(self, touch):
+        if super(SelectableClientesLabel, self).on_touch_down(touch):
+            return True
+        if self.collide_point(*touch.pos) and self.selectable:
+            return self.parent.select_with_touch(self.index, touch)
+
+    def apply_selection(self, rv, index, is_selected):
+        self.selected = is_selected
+        if is_selected:
+            rv.data[index]['seleccionado'] = True
+        else:
+            rv.data[index]['seleccionado'] = False
+
 
 class SelectableProveedoresLabel(RecycleDataViewBehavior, BoxLayout):
 	index = None

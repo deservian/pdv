@@ -314,41 +314,95 @@ class VentasWindow(BoxLayout):
 		self.ahora=self.ahora+timedelta(seconds=1)
 		self.ids.hora.text=self.ahora.strftime("%H:%M:%S")		
 
+	# def pagar(self):
+	# 	if self.ids.rvs.data:
+	# 		popup=PagarPopup(self.total, self.pagado)
+	# 		popup.open()
+	# 	else:
+	# 		self.ids.notificacion_falla.text='No hay nada que pagar'
+
 	def pagar(self):
 		if self.ids.rvs.data:
-			popup=PagarPopup(self.total, self.pagado)
+			popup = PagarPopup(self.total, self.pagado)
 			popup.open()
 		else:
-			self.ids.notificacion_falla.text='No hay nada que pagar'
+			self.ids.notificacion_falla.text = 'No hay nada que pagar'
+
+	# def pagado(self):
+	# 	self.ids.notificacion_exito.text='Compra realizada con exito'
+	# 	self.ids.notificacion_falla.text=''
+	# 	self.ids.total.text="{:.2f}".format(self.total)
+	# 	self.ids.buscar_codigo.disabled=True
+	# 	self.ids.buscar_nombre.disabled=True
+	# 	self.ids.pagar.disabled=True
+
+	# 	connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+	# 	actualizar=""" UPDATE productos SET cantidad=? WHERE codigo=? """
+	# 	actualizar_admin=[]
+
+	# 	venta = """ INSERT INTO ventas (total, fecha, username) VALUES (?, ?, ?) """
+	# 	venta_tuple = (self.total, self.ahora, self.usuario['username'])
+	# 	venta_id = QueriesSQLite.execute_query(connection, venta, venta_tuple)
+	# 	ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) VALUES (?, ?, ?, ?, ?) """
+
+	# 	for producto in self.ids.rvs.data:
+	# 		nueva_cantidad=0
+	# 		if producto['cantidad_inventario']-producto['cantidad_carrito']>0:
+	# 			nueva_cantidad=producto['cantidad_inventario']-producto['cantidad_carrito']
+	# 		producto_tuple=(nueva_cantidad, producto['codigo'])
+	# 		ventas_detalle_tuple= (venta_id, producto['precio'], producto['codigo'], producto['cantidad_carrito'])
+	# 		actualizar_admin.append({'codigo': producto['codigo'], 'cantidad': nueva_cantidad})
+
+	# 		QueriesSQLite.execute_query(connection, ventas_detalle, ventas_detalle_tuple)
+	# 		QueriesSQLite.execute_query(connection, actualizar, producto_tuple)
+	# 	self.actualizar_productos(actualizar_admin)
 
 	def pagado(self):
-		self.ids.notificacion_exito.text='Compra realizada con exito'
-		self.ids.notificacion_falla.text=''
-		self.ids.total.text="{:.2f}".format(self.total)
-		self.ids.buscar_codigo.disabled=True
-		self.ids.buscar_nombre.disabled=True
-		self.ids.pagar.disabled=True
+    # Asegúrate de que el Popup se haya cerrado antes de acceder al cliente_spinner
+		if self.ids.rvs.data:
+			popup = PagarPopup(self.total, self.pagado)
+			cliente_spinner = popup.ids.cliente_spinner
+			cliente_ci = cliente_spinner.text  # Obtener el texto del Spinner
 
-		connection = QueriesSQLite.create_connection("pdvDB.sqlite")
-		actualizar=""" UPDATE productos SET cantidad=? WHERE codigo=? """
-		actualizar_admin=[]
+			if not cliente_ci or cliente_ci == 'Selecciona un cliente':
+				self.ids.notificacion_falla.text = 'Debe seleccionar un cliente'
+				return
 
-		venta = """ INSERT INTO ventas (total, fecha, username) VALUES (?, ?, ?) """
-		venta_tuple = (self.total, self.ahora, self.usuario['username'])
-		venta_id = QueriesSQLite.execute_query(connection, venta, venta_tuple)
-		ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad) VALUES (?, ?, ?, ?) """
+			# Procesar el pago aquí
+			self.ids.notificacion_exito.text = 'Compra realizada con éxito'
+			self.ids.notificacion_falla.text = ''
+			self.ids.total.text = "{:.2f}".format(self.total)
+			self.ids.buscar_codigo.disabled = True
+			self.ids.buscar_nombre.disabled = True
+			self.ids.pagar.disabled = True
 
-		for producto in self.ids.rvs.data:
-			nueva_cantidad=0
-			if producto['cantidad_inventario']-producto['cantidad_carrito']>0:
-				nueva_cantidad=producto['cantidad_inventario']-producto['cantidad_carrito']
-			producto_tuple=(nueva_cantidad, producto['codigo'])
-			ventas_detalle_tuple= (venta_id, producto['precio'], producto['codigo'], producto['cantidad_carrito'])
-			actualizar_admin.append({'codigo': producto['codigo'], 'cantidad': nueva_cantidad})
+			connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+			try:
+				actualizar = """ UPDATE productos SET cantidad=? WHERE codigo=? """
+				actualizar_admin = []
 
-			QueriesSQLite.execute_query(connection, ventas_detalle, ventas_detalle_tuple)
-			QueriesSQLite.execute_query(connection, actualizar, producto_tuple)
-		self.actualizar_productos(actualizar_admin)
+				venta = """ INSERT INTO ventas (total, fecha, username) VALUES (?, ?, ?) """
+				venta_tuple = (self.total, self.ahora, self.usuario['username'])
+				venta_id = QueriesSQLite.execute_query(connection, venta, venta_tuple)
+
+				ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) VALUES (?, ?, ?, ?, ?) """
+
+				for producto in self.ids.rvs.data:
+					nueva_cantidad = 0
+					if producto['cantidad_inventario'] - producto['cantidad_carrito'] > 0:
+						nueva_cantidad = producto['cantidad_inventario'] - producto['cantidad_carrito']
+					producto_tuple = (nueva_cantidad, producto['codigo'])
+					ventas_detalle_tuple = (venta_id, producto['precio'], producto['codigo'], producto['cantidad_carrito'], cliente_ci)
+					actualizar_admin.append({'codigo': producto['codigo'], 'cantidad': nueva_cantidad})
+
+					QueriesSQLite.execute_query(connection, ventas_detalle, ventas_detalle_tuple)
+					QueriesSQLite.execute_query(connection, actualizar, producto_tuple)
+
+				self.actualizar_productos(actualizar_admin)
+			finally:
+				connection.close()
+		else:
+			self.ids.notificacion_falla.text = 'No hay nada que pagar'
 
 
 
