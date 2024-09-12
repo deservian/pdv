@@ -132,54 +132,71 @@
 			on_release: root.dismiss()
 
 <PagarPopup>:
-	size_hint: .4, .5
-	title: 'Pagar'
-	BoxLayout:
-		orientation: 'vertical'
-		spacing: .5
-		padding: .5
-		BoxLayout:
-			size_hint_y: .25
-			Label: 
-				size_hint_x: .5
-				text: 'Total a Pagar: '
-			Label:
-				id: total
-				size_hint_x: .5
-		BoxLayout:
-			size_hint_y: .25
-			Label:
-				size_hint_x: .5
-				text: 'Recibido: '
-			BoxLayout:
-				size_hint_x: .5
-				orientation: 'vertical'
-				TextInput:
-					id: recibido
-					hint_text: 'Cantidad recibida'
-					multiline: False
-					on_text_validate: root.mostrar_cambio()
-				Button:
-					text: 'Aceptar'
-					on_release: root.mostrar_cambio()
-		BoxLayout:
-			size_hint_y: .25
-			Label:
-				size_hint_x: .5
-				text: 'Cambio: '
-			Label:
-				id: cambio
-				size_hint_x: .5
-		BoxLayout:
-			size_hint_y: .25
-			Button: 
-				id: boton_pagar
-				disabled: True
-				text: 'Terminar Pago'
-				on_release: root.pagado()
-			Button:
-				text: 'Cancelar'
-				on_release: root.dismiss()
+    size_hint: .4, .5
+    title: 'Pagar'
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: .5
+        padding: .5
+        BoxLayout:
+            size_hint_y: .25
+            Label: 
+                size_hint_x: .5
+                text: 'Total a Pagar: '
+            Label:
+                id: total
+                size_hint_x: .5
+        BoxLayout:
+            size_hint_y: .25
+            Label:
+                size_hint_x: .5
+                text: 'Recibido: '
+            BoxLayout:
+                size_hint_x: .5
+                orientation: 'vertical'
+                TextInput:
+                    id: recibido
+                    hint_text: 'Cantidad recibida'
+                    multiline: False
+                    on_text_validate: root.mostrar_cambio()
+                Button:
+                    text: 'Aceptar'
+                    on_release: root.mostrar_cambio()  # Solo calcular cambio, no cerrar popup
+        BoxLayout:
+            size_hint_y: .25
+            Label:
+                size_hint_x: .5
+                text: 'Cambio: '
+            Label:
+                id: cambio
+                size_hint_x: .5
+        BoxLayout:
+            size_hint_y: .25
+            Label:
+                size_hint_x: .5
+                text: 'Seleccionar Cliente: '
+            Spinner:
+                id: cliente_spinner
+                text: 'Selecciona un cliente'
+                values: []  # Se llenará dinámicamente con los clientes desde Python
+                size_hint_x: .5
+        BoxLayout:
+            size_hint_y: .25
+            Button: 
+                id: boton_pagar
+                disabled: True
+                text: 'Terminar Pago'
+                on_release: root.pagado()  # Cerrar solo si se selecciona un cliente
+            Button:
+                text: 'Cancelar'
+                on_release: root.dismiss()
+        # Etiqueta para mostrar el mensaje de error si no se selecciona un cliente
+        Label:
+            id: cliente_error
+            text: ""
+            color: 1, 0, 0, 1  # Texto en rojo
+            size_hint_y: .1
+
 
 <NuevaCompraPopup>:
 	size_hint: .3, .3

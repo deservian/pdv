@@ -52,6 +52,39 @@
     	size_hint_x: .125
     	color: (0,0,0,1)
 
+<SelectableClientesLabel>:
+    # Draw a background to indicate selection
+    canvas.before:
+        Color:
+            rgba: hex('#C9F3EF') if self.selected else hex('#F0F0F0')
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    Label:
+    	id: _hashtag
+    	size_hint_x: .05
+    	color: (0,0,0,1)
+    Label:
+    	id: _ci
+    	size_hint_x: .15
+    	color: (0,0,0,1)
+    Label:
+    	id: _nombre
+    	size_hint_x: .3
+    	color: (0,0,0,1)
+    Label:
+    	id: _ciudad
+    	size_hint_x: .25
+    	color: (0,0,0,1)
+    Label:
+    	id: _telefono
+    	size_hint_x: .125
+    	color: (0,0,0,1)
+    Label:
+    	id: _nacimiento
+    	size_hint_x: .125
+    	color: (0,0,0,1)
+
 <SelectableUsuarioLabel>:
     # Draw a background to indicate selection
     canvas.before:
@@ -222,6 +255,61 @@
 		        text: 'Salir sin hacer cambios'
 		        on_press: root.dismiss()
 
+<ClientesPopup>:
+    size_hint: .5, .5
+    auto_dismiss: False
+    title: ''
+    BoxLayout:
+	    orientation: 'vertical'
+	    padding: .05
+	    BoxLayout:
+	    	size_hint_y: .1
+		    Label:
+		    	id: clientes_info_1
+	    Label:
+	    	id: no_valid_notif
+	    	size_hint_y: .2
+	    TextInput: 
+			size_hint_y: .2
+			id: clientes_ci
+			multiline: False
+			hint_text: 'C.I.'
+			write_tab: False
+		TextInput: 
+			id: clientes_nombre
+			size_hint_y: .2
+			multiline: False
+			hint_text: 'Nombre'
+			write_tab: False
+		TextInput: 
+			id: clientes_ciudad
+			size_hint_y: .15
+			multiline: False
+			hint_text: 'Ciudad'
+			write_tab: False
+		BoxLayout:
+			size_hint_y: .15
+			TextInput: 
+				id: clientes_telefono
+				multiline: False
+				hint_text: 'Telefono'
+				write_tab: False
+				input_filter: 'int'
+			TextInput: 
+				id: clientes_nacimiento
+				multiline: False
+				hint_text: 'AAAA-MM-DD'
+				write_tab: False
+				input_filter: 'str'
+		BoxLayout:
+			size_hint_y: .1
+		    Button:
+		    	text: 'Aceptar'
+		    	on_release: root.verificar(clientes_ci.text, clientes_nombre.text, clientes_ciudad.text, clientes_telefono.text, clientes_nacimiento.text)
+		    Button:
+		        text: 'Salir sin hacer cambios'
+		        on_press: root.dismiss()
+
 <ProveedorPopup>:
     size_hint: .5, .5
     auto_dismiss: False
@@ -370,6 +458,52 @@
 			BotonOscuro:
 				text: 'Eliminar Producto'
 				on_release: root.eliminar_producto()
+
+<VistaClientes>:
+	name: 'Clientes'
+	BoxLayout:
+		BoxLayout:
+			padding: .5
+			orientation: 'vertical'
+			BoxLayout:
+				size_hint_y: .05
+				spacing: .5
+				LabelOscuro:
+					text: '#'
+					size_hint_x: .05
+				LabelOscuro:
+					text: 'CI cliente'
+					size_hint_x: .15
+				LabelOscuro:
+					text: 'Nombre'
+					size_hint_x: .3
+				LabelOscuro:
+					text: 'Ciudad'
+					size_hint_x: .25
+				LabelOscuro:
+					text: 'Telefono'
+					size_hint_x: .125
+				LabelOscuro:
+					text: 'Fecha de nacimiento'
+					size_hint_x: .125
+			AdminRV:
+				id: rv_clientes
+				size_hint_y: .89
+				viewclass: 'SelectableClientesLabel'
+		BoxLayout:
+			spacing: .5
+			size_hint_x: .2
+			orientation: 'vertical'
+			padding: .5
+			BotonOscuro:
+				text: 'Nuevo cliente'
+				on_release: root.agregar_clientes()
+			BotonOscuro:
+				text: 'Modificar cliente'
+				on_release: root.modificar_clientes()
+			BotonOscuro:
+				text: 'Eliminar cliente'
+				on_release: root.eliminar_clientes()
 
 <VistaProveedores>:
 	name: 'Proveedores'
@@ -614,6 +748,11 @@
         size_hint_y: None
         height: 44
         on_release: root.vista(self.text)
+	Button:
+        text: 'Clientes'
+        size_hint_y: None
+        height: 44
+        on_release: root.vista(self.text)
     Button:
         text: 'Proveedores'
         size_hint_y: None
@@ -676,6 +815,8 @@
 			id: vista_usuarios
 		VistaVentas:
 			id: vista_ventas
+		VistaClientes:
+			id: vista_clientes
 		VistaProveedores:
 			id: vista_proveedores
 

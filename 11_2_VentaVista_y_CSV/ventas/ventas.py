@@ -204,26 +204,52 @@ class CambiarCantidadPopup(Popup):
 		except:
 			self.ids.notificacion_no_valido.text='Cantidad no valida'
 
-
 class PagarPopup(Popup):
-	def __init__(self, total, pagado_callback, **kwargs):
-		super(PagarPopup, self).__init__(**kwargs)
-		self.total=total
-		self.pagado=pagado_callback
-		self.ids.total.text= "{:.2f}".format(self.total)
-		self.ids.boton_pagar.bind(on_release=self.dismiss)
+    def __init__(self, total, pagado_callback, **kwargs):
+        super(PagarPopup, self).__init__(**kwargs)
+        self.total = total
+        self.pagado_callback = pagado_callback
+        self.ids.total.text = "{:.2f}".format(self.total)
 
-	def mostrar_cambio(self):
-		recibido= self.ids.recibido.text
-		try:
-			cambio=float(recibido)-float(self.total)
-			if cambio>=0:
-				self.ids.cambio.text="{:.2f}".format(cambio)
-				self.ids.boton_pagar.disabled=False
-			else:
-				self.ids.cambio.text="Pago menor a cantidad a pagar"
-		except:
-			self.ids.cambio.text="Pago no valido"
+        # Llamada al método que carga los clientes
+        self.cargar_clientes()
+
+    def cargar_clientes(self):
+        # Conexión a la base de datos y consulta de los nombres de los clientes
+        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        clientes_sql = QueriesSQLite.execute_read_query(connection, "SELECT nombre FROM clientes")
+
+        # Si hay clientes en la base de datos, cargar los nombres en el Spinner
+        if clientes_sql:
+            nombres_clientes = [cliente[0] for cliente in clientes_sql]  # Extraer los nombres
+            self.ids.cliente_spinner.values = nombres_clientes
+        else:
+            self.ids.cliente_spinner.values = ['No hay clientes disponibles']
+
+    def mostrar_cambio(self):
+        recibido = self.ids.recibido.text
+        try:
+            cambio = float(recibido) - float(self.total)
+            if cambio >= 0:
+                self.ids.cambio.text = "{:.2f}".format(cambio)
+                self.ids.boton_pagar.disabled = False
+            else:
+                self.ids.cambio.text = "Pago menor a cantidad a pagar"
+        except:
+            self.ids.cambio.text = "Pago no válido"
+
+    def pagado(self):
+        cliente_seleccionado = self.ids.cliente_spinner.text  # Obtener el cliente seleccionado
+        if cliente_seleccionado != 'Selecciona un cliente' and cliente_seleccionado:
+            # Registrar la venta y cerrar el popup
+            print(f"Venta registrada para el cliente: {cliente_seleccionado}")
+            self.pagado_callback(True)
+            self.dismiss()  # Cerrar el popup solo si se selecciona un cliente
+        else:
+            # Mostrar el mensaje de advertencia en rojo y NO cerrar el popup
+            self.ids.cliente_error.text = "Por favor selecciona un cliente"
+            self.ids.cliente_error.color = (1, 0, 0, 1)  # Color rojo para el mensaje
+
 
 class NuevaCompraPopup(Popup):
 	def __init__(self, nueva_compra_callback, **kwargs):

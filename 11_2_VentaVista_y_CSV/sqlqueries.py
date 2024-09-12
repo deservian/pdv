@@ -106,13 +106,13 @@ class QueriesSQLite:
         );
         """
 
-        tabla_descuentos = """
-        CREATE TABLE IF NOT EXISTS descuentos(
-        id INTEGER PRIMARY KEY,
+        tabla_clientes = """
+        CREATE TABLE IF NOT EXISTS clientes(
+        ci INTEGER PRIMARY KEY,
         nombre TEXT NOT NULL,
-        porcentaje REAL NOT NULL,
-        fecha_inicio TIMESTAMP,
-        fecha_fin TIMESTAMP
+        ciudad TEXT NOT NULL,
+        telefono REAL NOT NULL,
+        nacimiento TIMESTAMP
         );
         """
 
@@ -141,7 +141,7 @@ class QueriesSQLite:
         QueriesSQLite.execute_query(connection, tabla_categorias, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_proveedores, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_inventario, tuple()) 
-        QueriesSQLite.execute_query(connection, tabla_descuentos, tuple()) 
+        QueriesSQLite.execute_query(connection, tabla_clientes, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_metodos_pago, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_ventas_pagos, tuple()) 
 

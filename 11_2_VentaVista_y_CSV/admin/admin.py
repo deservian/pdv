@@ -11,14 +11,23 @@ from kivy.uix.dropdown import DropDown # esto se agrego
 from kivy.uix.popup import Popup
 from kivy.clock import Clock
 from kivy.lang import Builder
+from datetime import datetime
 
 from sqlqueries import QueriesSQLite
 from datetime import datetime, timedelta
 import csv
 from pathlib import Path
 import os
+import time
 
 Builder.load_file('admin/admin.kv')
+
+# Supongamos que data['nacimiento'] es una fecha en formato de string 'YYYY-MM-DD'
+data = {'nacimiento': '2000-01-01'}
+# Convertir el string a un objeto datetime
+fecha_nacimiento = datetime.strptime(data['nacimiento'], '%Y-%m-%d')
+# Convertir a timestamp
+timestamp_nacimiento = fecha_nacimiento.timestamp()
 
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
                                  RecycleBoxLayout):
@@ -41,6 +50,35 @@ class SelectableProductoLabel(RecycleDataViewBehavior, BoxLayout):
 
 	def on_touch_down(self, touch):
 		if super(SelectableProductoLabel, self).on_touch_down(touch):
+			return True
+		if self.collide_point(*touch.pos) and self.selectable:
+			return self.parent.select_with_touch(self.index, touch)
+
+	def apply_selection(self, rv, index, is_selected):
+		self.selected = is_selected
+		if is_selected:
+			rv.data[index]['seleccionado']=True
+		else:
+			rv.data[index]['seleccionado']=False
+
+class SelectableClientesLabel(RecycleDataViewBehavior, BoxLayout):
+	index = None
+	selected = BooleanProperty(False)
+	selectable = BooleanProperty(True)
+
+	def refresh_view_attrs(self, rv, index, data):
+		self.index = index
+		self.ids['_hashtag'].text = str(1+index)
+		self.ids['_ci'].text = str(data['ci'])
+		self.ids['_nombre'].text = data['nombre'].capitalize()
+		self.ids['_ciudad'].text = data['ciudad'].capitalize()
+		self.ids['_telefono'].text = str(data['telefono'])
+		self.ids['_nacimiento'].text = str(timestamp_nacimiento)
+		return super(SelectableClientesLabel, self).refresh_view_attrs(
+            rv, index, data)
+
+	def on_touch_down(self, touch):
+		if super(SelectableClientesLabel, self).on_touch_down(touch):
 			return True
 		if self.collide_point(*touch.pos) and self.selectable:
 			return self.parent.select_with_touch(self.index, touch)
@@ -245,6 +283,165 @@ class ProductoPopup(Popup):
 			validado['precio']=float(validado['precio'])
 			self.agregar_callback(True, validado)
 			self.dismiss()
+
+class ClientesPopup(Popup):
+	def __init__(self, agregar_callback, **kwargs):
+		super(ClientesPopup, self).__init__(**kwargs)
+		self.agregar_callback=agregar_callback
+
+	def abrir(self, agregar, clientes=None):
+		if agregar:
+			self.ids.clientes_info_1.text='Nuevo cliente'
+			self.ids.clientes_ci.disabled=False
+		else:
+			self.ids.clientes_info_1.text = 'Modificar cliente'
+			self.ids.clientes_ci.text = str(clientes['ci'])
+			self.ids.clientes_ci.disabled = True
+			self.ids.clientes_nombre.text = str(clientes['nombre'])
+			self.ids.clientes_ciudad.text = str(clientes['ciudad'])
+			self.ids.clientes_telefono.text = str(clientes['telefono'])
+			self.ids.clientes_nacimiento.text = str(clientes['nacimiento'])
+		self.open()
+
+	def verificar(self, clientes_ci, clientes_nombre, clientes_ciudad, clientes_telefono, clientes_nacimiento):
+		alert1='Falta: '
+		alert2=''
+		validado={}
+		if not clientes_ci:
+			alert1+='C.I. '
+			validado['ci']=False
+		else:
+			try:
+				numeric=int(clientes_ci)
+				validado['ci']=clientes_ci
+			except:
+				alert2+='C.I. no válido. '
+				validado['ci']=False
+
+		if not clientes_nombre:
+			alert1+='Nombre. '
+			validado['nombre']=False
+		else:
+			validado['nombre']=str(clientes_nombre) #clientes_nombre.lower()
+
+		if not clientes_ciudad:
+			alert1+='Ciudad. '
+			validado['ciudad']=False
+		else:
+			validado['ciudad']=str(clientes_ciudad) #clientes_ciudad.lower()
+
+		if not clientes_telefono:
+			alert1+='Telefono. '
+			validado['telefono']=False
+		else:
+			validado['telefono']=str(clientes_telefono)
+		
+		if not clientes_nacimiento:
+				alert1 += 'Fecha de nac. '
+				validado['nacimiento'] = False
+		else:
+			try:
+				fecha_nacimiento = datetime.strptime(clientes_nacimiento, '%Y-%m-%d')
+				datetime.strptime(clientes_nacimiento, '%Y-%m-%d')
+				validado['nacimiento'] = str(clientes_nacimiento) #clientes_nacimiento
+
+			except ValueError:
+				# Si la conversión a datetime falla
+				alert2 += 'Fecha no válida. '
+				validado['nacimiento'] = False
+
+		valores=list(validado.values())
+
+		if False in valores:
+			self.ids.no_valid_notif.text = alert1 + alert2
+		else:
+			self.ids.no_valid_notif.text = 'Validado'
+		#	validado['telefono'] = int(validado['telefono'])
+		#	validado['nacimiento'] = float(validado['nacimiento'])
+			self.agregar_callback(True, validado)
+			self.dismiss()
+
+class VistaClientes(Screen):
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
+		Clock.schedule_once(self.cargar_clientes, 1)
+
+	def cargar_clientes(self, *args):
+		_clientes=[]
+		connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+		inventario_sql=QueriesSQLite.execute_read_query(connection, "SELECT * from clientes")
+		if inventario_sql:
+			for cliente in inventario_sql:
+				_clientes.append({
+					'ci': cliente[0],
+					'nombre': cliente[1],
+					'ciudad': cliente[2],
+					'telefono': cliente[3],
+					'nacimiento': cliente[4]
+				})
+
+			self.ids.rv_clientes.data = _clientes  # Asigna los datos cargados al RecycleView
+			self.ids.rv_clientes.refresh_from_data()  # Refresca la vista con los nuevos datos
+	
+	def agregar_clientes(self, agregar=False, validado=None):
+		if agregar:
+			clientes_tuple=tuple(validado.values())
+			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			crear_clientes="""
+			INSERT INTO
+				clientes (ci, nombre, ciudad, telefono, nacimiento)
+			VALUES
+				(?, ?, ?, ?, ?);
+			"""
+			QueriesSQLite.execute_query(connection, crear_clientes, clientes_tuple)
+			self.ids.rv_clientes.data.append(validado)
+			self.ids.rv_clientes.refresh_from_data()
+		else:
+			popup=ClientesPopup(self.agregar_clientes)
+			popup.abrir(True)
+
+	def modificar_clientes(self, modificar=False, validado=None):
+		indice=self.ids.rv_clientes.dato_seleccionado()
+		if modificar:
+			clientes_tuple=(validado['nombre'], validado['ciudad'], validado['telefono'], validado['nacimiento'], validado['ci'])
+			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			actualizar="""
+			UPDATE
+				clientes
+			SET
+				nombre=?, ciudad=?, telefono=?, nacimiento=?
+			WHERE
+				ci=?
+			"""
+			QueriesSQLite.execute_query(connection, actualizar, clientes_tuple)
+			self.ids.rv_clientes.data[indice]['nombre']=validado['nombre']
+			self.ids.rv_clientes.data[indice]['ciudad']=validado['ciudad']
+			self.ids.rv_clientes.data[indice]['telefono']=validado['telefono']
+			self.ids.rv_clientes.data[indice]['nacimiento']=validado['nacimiento']
+			self.ids.rv_clientes.refresh_from_data()
+		else:
+			if indice>=0:
+				clientes=self.ids.rv_clientes.data[indice]
+				popup=ClientesPopup(self.modificar_clientes)
+				popup.abrir(False, clientes)
+
+	def eliminar_clientes(self):
+		indice=self.ids.rv_clientes.dato_seleccionado()
+		if indice>=0:
+			clientes_tuple=(self.ids.rv_clientes.data[indice]['ci'],)
+			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			borrar= """DELETE from clientes WHERE ci =? """
+			QueriesSQLite.execute_query(connection, borrar, clientes_tuple)
+			self.ids.rv_clientes.data.pop(indice)
+			self.ids.rv_clientes.refresh_from_data()
+
+	def actualizar_clientes(self, clientes_actualizado):
+		for clientes_nuevo in clientes_actualizado:
+			for clientes_viejo in self.ids.rv_clientes.data:
+				if clientes_nuevo['ci']==clientes_viejo['ci']:
+					clientes_viejo['telefono']=clientes_nuevo['telefono']
+					break
+		self.ids.rv_clientes.refresh_from_data()
 
 #Agregadoproveedores
 
