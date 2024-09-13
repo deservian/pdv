@@ -9,6 +9,7 @@ from kivy.uix.behaviors import FocusBehavior
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.dropdown import DropDown # esto se agrego
 from kivy.uix.popup import Popup
+from kivy.uix.button import Button
 from kivy.clock import Clock
 from kivy.lang import Builder
 from datetime import datetime
@@ -18,7 +19,7 @@ from datetime import datetime, timedelta
 import csv
 from pathlib import Path
 import os
-import time
+import sqlite3
 
 Builder.load_file('admin/admin.kv')
 
@@ -226,76 +227,122 @@ class AdminRV(RecycleView):
         return indice
 
 class ProductoPopup(Popup):
-	def __init__(self, agregar_callback, **kwargs):
-		super(ProductoPopup, self).__init__(**kwargs)
-		self.agregar_callback=agregar_callback
+    def __init__(self, agregar_callback, **kwargs):
+        super(ProductoPopup, self).__init__(**kwargs)
+        self.agregar_callback = agregar_callback
+        self.dropdown = DropDown()
 
-	def abrir(self, agregar, producto=None):
-		if agregar:
-			self.ids.producto_info_1.text='Agregar producto nuevo'
-			self.ids.producto_codigo.disabled=False
-		else:
-			self.ids.producto_info_1.text='Modificar producto'
-			self.ids.producto_codigo.text=producto['codigo']
-			self.ids.producto_codigo.disabled=True
-			self.ids.producto_nombre.text=producto['nombre']
-			self.ids.producto_cantidad.text=str(producto['cantidad'])
-			self.ids.producto_precio.text=str(producto['precio'])
-		self.open()
+    def abrir(self, agregar, producto=None):
+        if agregar:
+            self.ids.producto_info_1.text = 'Agregar producto nuevo'
+            self.ids.producto_codigo.disabled = False
+        else:
+            self.ids.producto_info_1.text = 'Modificar producto'
+            self.ids.producto_codigo.text = producto['codigo']
+            self.ids.producto_codigo.disabled = True
+            self.ids.producto_nombre.text = producto['nombre']
+            self.ids.producto_cantidad.text = str(producto['cantidad'])
+            self.ids.producto_precio.text = str(producto['precio'])
+        self.open()
 
-	def verificar(self, producto_codigo, producto_nombre, producto_cantidad, producto_precio):
-		alert1='Falta: '
-		alert2=''
-		validado={}
-		if not producto_codigo:
-			alert1+='Codigo. '
-			validado['codigo']=False
-		else:
-			try:
-				numeric=int(producto_codigo)
-				validado['codigo']=producto_codigo
-			except:
-				alert2+='Código no válido. '
-				validado['codigo']=False
+    def mostrar_proveedores(self):
+        self.dropdown.clear_widgets()  # Clear previous items
+        connection = sqlite3.connect("pdvDB.sqlite")
+        cursor = connection.cursor()
+        cursor.execute("SELECT nombre FROM proveedores")
+        proveedores = cursor.fetchall()
+        connection.close()
 
-		if not producto_nombre:
-			alert1+='Nombre. '
-			validado['nombre']=False
-		else:
-			validado['nombre']=producto_nombre.lower()
+        for proveedor in proveedores:
+            btn = Button(text=proveedor[0], size_hint_y=None, height=44)
+            btn.bind(on_release=self.seleccionar_proveedor)
+            self.dropdown.add_widget(btn)
 
-		if not producto_precio:
-			alert1+='Precio. '
-			validado['precio']=False
-		else:
-			try:
-				numeric=float(producto_precio)
-				validado['precio']=producto_precio
-			except:
-				alert2+='Precio no válido. '
-				validado['precio']=False
-			
-		if not producto_cantidad:
-			alert1+='Cantidad. '
-			validado['cantidad']=False
-		else:
-			try:
-				numeric=int(producto_cantidad)
-				validado['cantidad']=producto_cantidad
-			except:
-				alert2+='Cantidad no válida. '
-				validado['cantidad']=False
+        self.dropdown.open(self.ids.btn_proveedores)
 
-		valores=list(validado.values())
+    def seleccionar_proveedor(self, btn):
+        self.ids.btn_proveedores.text = btn.text
+        self.dropdown.dismiss()
 
-		if False in valores:
-			self.ids.no_valid_notif.text=alert1+alert2
-		else:
-			self.ids.no_valid_notif.text='Validado'
-			validado['cantidad']=int(validado['cantidad'])
-			validado['precio']=float(validado['precio'])
-			self.agregar_callback(True, validado)
-			self.dismiss()
+    def verificar(self, producto_codigo, producto_nombre, producto_cantidad, producto_precio):
+        alert1 = 'Falta: '
+        alert2 = ''
+        validado = {}
+        if not producto_codigo:
+            alert1 += 'Código. '
+            validado['codigo'] = False
+        else:
+            try:
+                numeric = int(producto_codigo)
+                validado['codigo'] = producto_codigo
+            except:
+                alert2 += 'Código no válido. '
+                validado['codigo'] = False
+
+        if not producto_nombre:
+            alert1 += 'Nombre. '
+            validado['nombre'] = False
+        else:
+            validado['nombre'] = producto_nombre.lower()
+
+        if not producto_precio:
+            alert1 += 'Precio. '
+            validado['precio'] = False
+        else:
+            try:
+                numeric = float(producto_precio)
+                validado['precio'] = producto_precio
+            except:
+                alert2 += 'Precio no válido. '
+                validado['precio'] = False
+
+        if not producto_cantidad:
+            alert1 += 'Cantidad. '
+            validado['cantidad'] = False
+        else:
+            try:
+                numeric = int(producto_cantidad)
+                validado['cantidad'] = producto_cantidad
+            except:
+                alert2 += 'Cantidad no válida. '
+                validado['cantidad'] = False
+
+        valores = list(validado.values())
+
+        if False in valores:
+            self.ids.no_valid_notif.text = alert1 + alert2
+        else:
+            self.ids.no_valid_notif.text = 'Validado'
+            validado['cantidad'] = int(validado['cantidad'])
+            validado['precio'] = float(validado['precio'])
+            
+            # Agregar el producto a la base de datos
+            connection = sqlite3.connect("pdvDB.sqlite")
+            cursor = connection.cursor()
+            
+            # Insertar en la tabla productos
+            insertar_producto = """
+            INSERT INTO productos (codigo, nombre, precio, cantidad)
+            VALUES (?, ?, ?, ?)
+            """
+            cursor.execute(insertar_producto, (validado['codigo'], validado['nombre'], validado['precio'], validado['cantidad']))
+            
+            # Insertar en la tabla inventario
+            insertar_inventario = """
+            INSERT INTO inventario (codigo_producto, tipo_movimiento, cantidad, fecha)
+            VALUES (?, ?, ?, ?)
+            """
+            tipo_movimiento = 'compra'
+            fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute(insertar_inventario, (validado['codigo'], tipo_movimiento, validado['cantidad'], fecha_actual))
+            
+            connection.commit()
+            connection.close()
+            
+            self.agregar_callback(True, validado)
+            self.dismiss()
+
+
 
 class ClientesPopup(Popup):
 	def __init__(self, agregar_callback, **kwargs):

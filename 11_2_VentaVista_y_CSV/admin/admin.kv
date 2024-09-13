@@ -213,47 +213,55 @@
     auto_dismiss: False
     title: ''
     BoxLayout:
-	    orientation: 'vertical'
-	    padding: .05
-	    BoxLayout:
-	    	size_hint_y: .1
-		    Label:
-		    	id: producto_info_1
-	    Label:
-	    	id: no_valid_notif
-	    	size_hint_y: .2
-	    TextInput: 
-			size_hint_y: .2
-			id: producto_codigo
-			multiline: False
-			hint_text: 'Código'
-			write_tab: False
-		TextInput: 
-			id: producto_nombre
-			size_hint_y: .2
-			multiline: False
-			hint_text: 'Nombre'
-			write_tab: False
-		BoxLayout:
-			size_hint_y: .2
-			TextInput: 
-				id: producto_cantidad
-				multiline: False
-				hint_text: 'Cantidad'
-				write_tab: False
-			TextInput: 
-				id: producto_precio
-				multiline: False
-				hint_text: 'Precio'
-				write_tab: False
-		BoxLayout:
-			size_hint_y: .2
-		    Button:
-		    	text: 'Aceptar'
-		    	on_release: root.verificar(producto_codigo.text, producto_nombre.text, producto_cantidad.text, producto_precio.text)
-		    Button:
-		        text: 'Salir sin hacer cambios'
-		        on_press: root.dismiss()
+        orientation: 'vertical'
+        padding: .05
+        BoxLayout:
+            size_hint_y: .1
+            Label:
+                id: producto_info_1
+        Label:
+            id: no_valid_notif
+            size_hint_y: .2
+        BoxLayout:
+            size_hint_y: .2
+            orientation: 'horizontal'
+            TextInput:
+                id: producto_codigo
+                multiline: False
+                hint_text: 'Código'
+                write_tab: False
+            Button:
+                id: btn_proveedores
+                text: 'Proveedor'
+                size_hint_x: None
+                width: 150
+                on_release: root.mostrar_proveedores()
+        TextInput:
+            id: producto_nombre
+            size_hint_y: .2
+            multiline: False
+            hint_text: 'Nombre'
+            write_tab: False
+        BoxLayout:
+            size_hint_y: .2
+            TextInput:
+                id: producto_cantidad
+                multiline: False
+                hint_text: 'Cantidad'
+                write_tab: False
+            TextInput:
+                id: producto_precio
+                multiline: False
+                hint_text: 'Precio'
+                write_tab: False
+        BoxLayout:
+            size_hint_y: .2
+            Button:
+                text: 'Aceptar'
+                on_release: root.verificar(producto_codigo.text, producto_nombre.text, producto_cantidad.text, producto_precio.text)
+            Button:
+                text: 'Salir sin hacer cambios'
+                on_press: root.dismiss()
 
 <ClientesPopup>:
     size_hint: .5, .5
