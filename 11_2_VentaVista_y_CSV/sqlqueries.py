@@ -46,7 +46,15 @@ class QueriesSQLite:
         cantidad INTEGER NOT NULL
         );
         """
-
+        tabla_compras = """ 
+        CREATE TABLE IF NOT EXISTS compras( 
+        codigo TEXT PRIMARY KEY,  
+        nombre TEXT NOT NULL, 
+        precio REAL NOT NULL, 
+        cantidad INTEGER NOT NULL,
+        proveedor TEXT NOT NULL
+        );
+        """
         tabla_usuarios = """
         CREATE TABLE IF NOT EXISTS usuarios(
         username TEXT PRIMARY KEY, 
@@ -77,13 +85,6 @@ class QueriesSQLite:
         FOREIGN KEY(id_venta) REFERENCES ventas(id),
         FOREIGN KEY(producto) REFERENCES productos(codigo),
         FOREIGN KEY(cliente_ci) REFERENCES clientes(ci)
-        );
-        """
-
-        tabla_categorias = """
-        CREATE TABLE IF NOT EXISTS categorias(
-        id INTEGER PRIMARY KEY,
-        nombre TEXT NOT NULL
         );
         """
 
@@ -140,7 +141,7 @@ class QueriesSQLite:
         QueriesSQLite.execute_query(connection, tabla_usuarios, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_ventas, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_ventas_detalle, tuple()) 
-        QueriesSQLite.execute_query(connection, tabla_categorias, tuple()) 
+        QueriesSQLite.execute_query(connection, tabla_compras, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_proveedores, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_inventario, tuple()) 
         QueriesSQLite.execute_query(connection, tabla_clientes, tuple()) 
