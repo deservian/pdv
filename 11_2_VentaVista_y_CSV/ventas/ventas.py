@@ -217,12 +217,12 @@ class PagarPopup(Popup):
     def cargar_clientes(self):
         # Conexión a la base de datos y consulta de los nombres de los clientes
         connection = QueriesSQLite.create_connection("pdvDB.sqlite")
-        clientes_sql = QueriesSQLite.execute_read_query(connection, "SELECT nombre FROM clientes")
+        clientes_sql = QueriesSQLite.execute_read_query(connection, "SELECT nombre, ci FROM clientes")
 
         # Si hay clientes en la base de datos, cargar los nombres en el Spinner
         if clientes_sql:
-            nombres_clientes = [cliente[0] for cliente in clientes_sql]  # Extraer los nombres
-            self.ids.cliente_spinner.values = nombres_clientes
+            self.clientes_dict = {cliente[0]: cliente[1] for cliente in clientes_sql}  # Extraer nombres y ci
+            self.ids.cliente_spinner.values = list(self.clientes_dict.keys())
         else:
             self.ids.cliente_spinner.values = ['No hay clientes disponibles']
 
@@ -241,9 +241,10 @@ class PagarPopup(Popup):
     def pagado(self):
         cliente_seleccionado = self.ids.cliente_spinner.text  # Obtener el cliente seleccionado
         if cliente_seleccionado != 'Selecciona un cliente' and cliente_seleccionado:
-            # Registrar la venta y cerrar el popup
-            print(f"Venta registrada para el cliente: {cliente_seleccionado}")
-            self.pagado_callback(True)
+            ci_cliente = self.clientes_dict.get(cliente_seleccionado)  # Obtener el ci del cliente
+            print(f"Venta registrada para el cliente: {cliente_seleccionado} (CI: {ci_cliente})")
+            if callable(self.pagado_callback):
+                self.pagado_callback(ci_cliente)  # Pasar el ci_cliente al callback
             self.dismiss()  # Cerrar el popup solo si se selecciona un cliente
         else:
             # Mostrar el mensaje de advertencia en rojo y NO cerrar el popup
@@ -259,196 +260,142 @@ class NuevaCompraPopup(Popup):
 
 
 class VentasWindow(BoxLayout):
-	usuario=None
-	def __init__(self, actualizar_productos_callback, **kwargs):
-		super().__init__(**kwargs)
-		self.total=0.0
-		self.ids.rvs.modificar_producto=self.modificar_producto
-		self.actualizar_productos=actualizar_productos_callback
+    usuario = None
 
-		self.ahora=datetime.now()
-		self.ids.fecha.text=self.ahora.strftime("%d/%m/%y")
-		Clock.schedule_interval(self.actualizar_hora, 1)
+    def __init__(self, actualizar_productos_callback, **kwargs):
+        super().__init__(**kwargs)
+        self.total = 0.0
+        self.ids.rvs.modificar_producto = self.modificar_producto
+        self.actualizar_productos = actualizar_productos_callback
 
+        self.ahora = datetime.now()
+        self.ids.fecha.text = self.ahora.strftime("%d/%m/%y")
+        Clock.schedule_interval(self.actualizar_hora, 1)
 
-	def agregar_producto_codigo(self, codigo):
-		connection = QueriesSQLite.create_connection("pdvDB.sqlite")
-		inventario_sql=QueriesSQLite.execute_read_query(connection, "SELECT * from productos")
-		for producto in inventario_sql:
-			if codigo==producto[0]:
-				articulo={}
-				articulo['codigo']=producto[0]
-				articulo['nombre']=producto[1]
-				articulo['precio']=producto[2]
-				articulo['cantidad_carrito']=1
-				articulo['cantidad_inventario']=producto[3]
-				articulo['precio_total']=producto[2]
-				self.agregar_producto(articulo)
-				self.ids.buscar_codigo.text=''
-				break
+    def agregar_producto_codigo(self, codigo):
+        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        inventario_sql = QueriesSQLite.execute_read_query(connection, "SELECT * from productos")
+        for producto in inventario_sql:
+            if codigo == producto[0]:
+                articulo = {}
+                articulo['codigo'] = producto[0]
+                articulo['nombre'] = producto[1]
+                articulo['precio'] = producto[2]
+                articulo['cantidad_carrito'] = 1
+                articulo['cantidad_inventario'] = producto[3]
+                articulo['precio_total'] = producto[2]
+                self.agregar_producto(articulo)
+                self.ids.buscar_codigo.text = ''
+                break
 
-	def agregar_producto_nombre(self, nombre):
-		self.ids.buscar_nombre.text=''
-		popup=ProductoPorNombrePopup(nombre, self.agregar_producto)
-		popup.mostrar_articulos()
+    def agregar_producto_nombre(self, nombre):
+        self.ids.buscar_nombre.text = ''
+        popup = ProductoPorNombrePopup(nombre, self.agregar_producto)
+        popup.mostrar_articulos()
 
-	def agregar_producto(self, articulo):
-		self.total+=articulo['precio']
-		self.ids.sub_total.text= '$ '+"{:.2f}".format(self.total)
-		self.ids.rvs.agregar_articulo(articulo)
+    def agregar_producto(self, articulo):
+        self.total += articulo['precio']
+        self.ids.sub_total.text = '$ ' + "{:.2f}".format(self.total)
+        self.ids.rvs.agregar_articulo(articulo)
 
+    def eliminar_producto(self):
+        menos_precio = self.ids.rvs.eliminar_articulo()
+        self.total -= menos_precio
+        self.ids.sub_total.text = '$ ' + "{:.2f}".format(self.total)
 
-	def eliminar_producto(self):
-		menos_precio=self.ids.rvs.eliminar_articulo()
-		self.total-=menos_precio
-		self.ids.sub_total.text='$ '+"{:.2f}".format(self.total)
+    def modificar_producto(self, cambio=True, nuevo_total=None):
+        if cambio:    
+            self.ids.rvs.modificar_articulo()
+        else:
+            self.total = nuevo_total
+            self.ids.sub_total.text = '$ ' + "{:.2f}".format(self.total)
 
-	def modificar_producto(self, cambio=True, nuevo_total=None):
-		if cambio:	
-			self.ids.rvs.modificar_articulo()
-		else:
-			self.total=nuevo_total
-			self.ids.sub_total.text='$ '+"{:.2f}".format(self.total)
+    def actualizar_hora(self, *args):
+        self.ahora = self.ahora + timedelta(seconds=1)
+        self.ids.hora.text = self.ahora.strftime("%H:%M:%S")        
 
-	def actualizar_hora(self, *args):
-		self.ahora=self.ahora+timedelta(seconds=1)
-		self.ids.hora.text=self.ahora.strftime("%H:%M:%S")		
+    def pagar(self):
+        if self.ids.rvs.data:
+            popup = PagarPopup(self.total, self.pagado)
+            popup.open()
+        else:
+            self.ids.notificacion_falla.text = 'No hay nada que pagar'
 
-	# def pagar(self):
-	# 	if self.ids.rvs.data:
-	# 		popup=PagarPopup(self.total, self.pagado)
-	# 		popup.open()
-	# 	else:
-	# 		self.ids.notificacion_falla.text='No hay nada que pagar'
+    def pagado(self, ci_cliente=None):
+        if ci_cliente:
+            # Aquí es donde puedes usar el ci_cliente para registrar la venta
+            print(f"CI del cliente para la venta: {ci_cliente}")
 
-	def pagar(self):
-		if self.ids.rvs.data:
-			popup = PagarPopup(self.total, self.pagado)
-			popup.open()
-		else:
-			self.ids.notificacion_falla.text = 'No hay nada que pagar'
+        # Código existente para registrar la venta
+        self.ids.notificacion_exito.text = 'Compra realizada con exito'
+        self.ids.notificacion_falla.text = ''
+        self.ids.total.text = "{:.2f}".format(self.total)
+        self.ids.buscar_codigo.disabled = True
+        self.ids.buscar_nombre.disabled = True
+        self.ids.pagar.disabled = True
 
-	# def pagado(self):
-	# 	self.ids.notificacion_exito.text='Compra realizada con exito'
-	# 	self.ids.notificacion_falla.text=''
-	# 	self.ids.total.text="{:.2f}".format(self.total)
-	# 	self.ids.buscar_codigo.disabled=True
-	# 	self.ids.buscar_nombre.disabled=True
-	# 	self.ids.pagar.disabled=True
+        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        actualizar = """ UPDATE productos SET cantidad=? WHERE codigo=? """
+        actualizar_admin = []
 
-	# 	connection = QueriesSQLite.create_connection("pdvDB.sqlite")
-	# 	actualizar=""" UPDATE productos SET cantidad=? WHERE codigo=? """
-	# 	actualizar_admin=[]
+        venta = """ INSERT INTO ventas (total, fecha, username) VALUES (?, ?, ?) """
+        venta_tuple = (self.total, self.ahora, self.usuario['username'])
+        venta_id = QueriesSQLite.execute_query(connection, venta, venta_tuple)
+        ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) VALUES (?, ?, ?, ?, ?) """
 
-	# 	venta = """ INSERT INTO ventas (total, fecha, username) VALUES (?, ?, ?) """
-	# 	venta_tuple = (self.total, self.ahora, self.usuario['username'])
-	# 	venta_id = QueriesSQLite.execute_query(connection, venta, venta_tuple)
-	# 	ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) VALUES (?, ?, ?, ?, ?) """
+        for producto in self.ids.rvs.data:
+            nueva_cantidad = 0
+            if producto['cantidad_inventario'] - producto['cantidad_carrito'] > 0:
+                nueva_cantidad = producto['cantidad_inventario'] - producto['cantidad_carrito']
+            producto_tuple = (nueva_cantidad, producto['codigo'])
+            ventas_detalle_tuple = (venta_id, producto['precio'], producto['codigo'], producto['cantidad_carrito'], ci_cliente)
+            actualizar_admin.append({'codigo': producto['codigo'], 'cantidad': nueva_cantidad})
 
-	# 	for producto in self.ids.rvs.data:
-	# 		nueva_cantidad=0
-	# 		if producto['cantidad_inventario']-producto['cantidad_carrito']>0:
-	# 			nueva_cantidad=producto['cantidad_inventario']-producto['cantidad_carrito']
-	# 		producto_tuple=(nueva_cantidad, producto['codigo'])
-	# 		ventas_detalle_tuple= (venta_id, producto['precio'], producto['codigo'], producto['cantidad_carrito'])
-	# 		actualizar_admin.append({'codigo': producto['codigo'], 'cantidad': nueva_cantidad})
+            QueriesSQLite.execute_query(connection, ventas_detalle, ventas_detalle_tuple)
+            QueriesSQLite.execute_query(connection, actualizar, producto_tuple)
+        self.actualizar_productos(actualizar_admin)
+		
+    def nueva_compra(self, desde_popup=False):
+        if desde_popup:
+            self.ids.rvs.data = []
+            self.total = 0.0
+            self.ids.sub_total.text = '0.00'
+            self.ids.total.text = '0.00'
+            self.ids.notificacion_exito.text = ''
+            self.ids.notificacion_falla.text = ''
+            self.ids.buscar_codigo.disabled = False
+            self.ids.buscar_nombre.disabled = False
+            self.ids.pagar.disabled = False
+            self.ids.rvs.refresh_from_data()
+        elif len(self.ids.rvs.data):
+            popup = NuevaCompraPopup(self.nueva_compra)
+            popup.open()
 
-	# 		QueriesSQLite.execute_query(connection, ventas_detalle, ventas_detalle_tuple)
-	# 		QueriesSQLite.execute_query(connection, actualizar, producto_tuple)
-	# 	self.actualizar_productos(actualizar_admin)
+    def admin(self):
+        self.parent.parent.current = 'scrn_admin'
+        # connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        # select_products = "SELECT * from productos"
+        # productos = QueriesSQLite.execute_read_query(connection, select_products)
+        # for producto in productos:
+        #     print(producto)
 
-	def pagado(self):
-    # Asegúrate de que el Popup se haya cerrado antes de acceder al cliente_spinner
-		if self.ids.rvs.data:
-			popup = PagarPopup(self.total, self.pagado)
-			cliente_spinner = popup.ids.cliente_spinner
-			cliente_ci = cliente_spinner.text  # Obtener el texto del Spinner
+    def signout(self):
+        if self.ids.rvs.data:
+            self.ids.notificacion_falla.text = 'Compra abierta'
+        else:
+            self.parent.parent.current = 'scrn_signin'
 
-			if not cliente_ci or cliente_ci == 'Selecciona un cliente':
-				self.ids.notificacion_falla.text = 'Debe seleccionar un cliente'
-				return
-
-			# Procesar el pago aquí
-			self.ids.notificacion_exito.text = 'Compra realizada con éxito'
-			self.ids.notificacion_falla.text = ''
-			self.ids.total.text = "{:.2f}".format(self.total)
-			self.ids.buscar_codigo.disabled = True
-			self.ids.buscar_nombre.disabled = True
-			self.ids.pagar.disabled = True
-
-			connection = QueriesSQLite.create_connection("pdvDB.sqlite")
-			try:
-				actualizar = """ UPDATE productos SET cantidad=? WHERE codigo=? """
-				actualizar_admin = []
-
-				venta = """ INSERT INTO ventas (total, fecha, username) VALUES (?, ?, ?) """
-				venta_tuple = (self.total, self.ahora, self.usuario['username'])
-				venta_id = QueriesSQLite.execute_query(connection, venta, venta_tuple)
-
-				ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) VALUES (?, ?, ?, ?, ?) """
-
-				for producto in self.ids.rvs.data:
-					nueva_cantidad = 0
-					if producto['cantidad_inventario'] - producto['cantidad_carrito'] > 0:
-						nueva_cantidad = producto['cantidad_inventario'] - producto['cantidad_carrito']
-					producto_tuple = (nueva_cantidad, producto['codigo'])
-					ventas_detalle_tuple = (venta_id, producto['precio'], producto['codigo'], producto['cantidad_carrito'], cliente_ci)
-					actualizar_admin.append({'codigo': producto['codigo'], 'cantidad': nueva_cantidad})
-
-					QueriesSQLite.execute_query(connection, ventas_detalle, ventas_detalle_tuple)
-					QueriesSQLite.execute_query(connection, actualizar, producto_tuple)
-
-				self.actualizar_productos(actualizar_admin)
-			finally:
-				connection.close()
-		else:
-			self.ids.notificacion_falla.text = 'No hay nada que pagar'
-
-
-
-	def nueva_compra(self, desde_popup=False):
-		if desde_popup:
-			self.ids.rvs.data=[]
-			self.total=0.0
-			self.ids.sub_total.text= '0.00'
-			self.ids.total.text= '0.00'
-			self.ids.notificacion_exito.text=''
-			self.ids.notificacion_falla.text=''
-			self.ids.buscar_codigo.disabled=False
-			self.ids.buscar_nombre.disabled=False
-			self.ids.pagar.disabled=False
-			self.ids.rvs.refresh_from_data()
-		elif len(self.ids.rvs.data):
-			popup=NuevaCompraPopup(self.nueva_compra)
-			popup.open()
-
-	def admin(self):
-		self.parent.parent.current='scrn_admin'
-		# connection = QueriesSQLite.create_connection("pdvDB.sqlite")
-		# select_products = "SELECT * from productos"
-		# productos = QueriesSQLite.execute_read_query(connection, select_products)
-		# for producto in productos:
-		# 	print(producto)
-
-
-	def signout(self):
-		if self.ids.rvs.data:
-			self.ids.notificacion_falla.text='Compra abierta'
-		else:
-			self.parent.parent.current='scrn_signin'
-
-	def poner_usuario(self, usuario):
-		self.ids.bienvenido_label.text='Bienvenido '+usuario['nombre']
-		self.usuario=usuario
-		if usuario['tipo']=='trabajador':
-			self.ids.admin_boton.disabled=True
-			self.ids.admin_boton.text=''
-			self.ids.admin_boton.opacity=0
-		else:
-			self.ids.admin_boton.disabled=False
-			self.ids.admin_boton.text='Admin'
-			self.ids.admin_boton.opacity=1
-
+    def poner_usuario(self, usuario):
+        self.ids.bienvenido_label.text = 'Bienvenido ' + usuario['nombre']
+        self.usuario = usuario
+        if usuario['tipo'] == 'trabajador':
+            self.ids.admin_boton.disabled = True
+            self.ids.admin_boton.text = ''
+            self.ids.admin_boton.opacity = 0
+        else:
+            self.ids.admin_boton.disabled = False
+            self.ids.admin_boton.text = 'Admin'
+            self.ids.admin_boton.opacity = 1
 
 class VentasApp(App):
 	def build(self):
