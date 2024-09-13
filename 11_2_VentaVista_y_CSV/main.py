@@ -1,3 +1,4 @@
+from kivy.core.window import Window
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 
@@ -5,6 +6,16 @@ from sqlqueries import QueriesSQLite
 from signin.signin import SigninWindow
 from admin.admin import AdminWindow
 from ventas.ventas import VentasWindow
+
+# Configurar la ventana en pantalla completa
+Window.fullscreen = True
+
+class MainLayout(BoxLayout):
+    pass
+
+class MainApp(App):
+    def build(self):
+        return MainLayout()
 
 # agregado queriessqlite.creat89e_tables()
 class MainWindow(BoxLayout):

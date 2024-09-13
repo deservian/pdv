@@ -216,25 +216,22 @@ class PagarPopup(Popup):
         self.cargar_metodos_pago()
 
     def cargar_clientes(self):
-        # Conexión a la base de datos y consulta de los nombres de los clientes
         connection = QueriesSQLite.create_connection("pdvDB.sqlite")
         clientes_sql = QueriesSQLite.execute_read_query(connection, "SELECT nombre, ci FROM clientes")
 
-        # Si hay clientes en la base de datos, cargar los nombres en el Spinner
         if clientes_sql:
-            self.clientes_dict = {cliente[0]: cliente[1] for cliente in clientes_sql}  # Extraer nombres y ci
+            self.clientes_dict = {cliente[0]: cliente[1] for cliente in clientes_sql}
             self.ids.cliente_spinner.values = list(self.clientes_dict.keys())
         else:
             self.ids.cliente_spinner.values = ['No hay clientes disponibles']
 
     def cargar_metodos_pago(self):
-        # Conexión a la base de datos y consulta de los métodos de pago
         connection = QueriesSQLite.create_connection("pdvDB.sqlite")
-        metodos_sql = QueriesSQLite.execute_read_query(connection, "SELECT nombre FROM metodos_pago")
+        metodos_sql = QueriesSQLite.execute_read_query(connection, "SELECT id, nombre FROM metodos_pago")
 
-        # Si hay métodos de pago en la base de datos, cargar los nombres en el Spinner
         if metodos_sql:
-            self.ids.metodo_spinner.values = [nombre[0] for nombre in metodos_sql]  # Extraer nombres de métodos
+            self.metodos_pago_dict = {nombre[1]: nombre[0] for nombre in metodos_sql}  # Almacena id y nombre del método
+            self.ids.metodo_spinner.values = [nombre[1] for nombre in metodos_sql]
         else:
             self.ids.metodo_spinner.values = ['No hay métodos de pago disponibles']
 
@@ -251,19 +248,48 @@ class PagarPopup(Popup):
             self.ids.cambio.text = "Pago no válido"
 
     def pagado(self):
-        cliente_seleccionado = self.ids.cliente_spinner.text  # Obtener el cliente seleccionado
-        metodo_pago_seleccionado = self.ids.metodo_spinner.text  # Obtener el método de pago seleccionado
+        cliente_seleccionado = self.ids.cliente_spinner.text
+        metodo_pago_seleccionado = self.ids.metodo_spinner.text
+
         if cliente_seleccionado != 'Selecciona un cliente' and cliente_seleccionado:
-            ci_cliente = self.clientes_dict.get(cliente_seleccionado)  # Obtener el ci del cliente
+            ci_cliente = self.clientes_dict.get(cliente_seleccionado)
+            metodo_pago_id = self.metodos_pago_dict.get(metodo_pago_seleccionado)  # Obtener el ID del método de pago
+
+            # Obtener el id de la venta
+            id_venta = self.obtener_id_venta()
+
+            # Insertar el monto de la venta en la tabla ventas_pagos
+            connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+            cursor = connection.cursor()
+
+            insertar_pago = """
+            INSERT INTO ventas_pagos (id_venta, metodo_pago_id, monto)
+            VALUES (?, ?, ?)
+            """
+            cursor.execute(insertar_pago, (id_venta, metodo_pago_id, self.total))  # Guardar el monto real de la venta
+
+            connection.commit()
+            connection.close()
+
             print(f"Venta registrada para el cliente: {cliente_seleccionado} (CI: {ci_cliente})")
-            print(f"Método de pago seleccionado: {metodo_pago_seleccionado}")
+            print(f"Método de pago seleccionado: {metodo_pago_seleccionado}, Monto real de la venta: {self.total}")
+
             if callable(self.pagado_callback):
                 self.pagado_callback(ci_cliente)  # Pasar el ci_cliente al callback
+
             self.dismiss()  # Cerrar el popup solo si se selecciona un cliente
         else:
-            # Mostrar el mensaje de advertencia en rojo y NO cerrar el popup
             self.ids.cliente_error.text = "Por favor selecciona un cliente"
             self.ids.cliente_error.color = (1, 0, 0, 1)  # Color rojo para el mensaje
+
+    def obtener_id_venta(self):
+        # Obtener el último id de la tabla ventas
+        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM ventas ORDER BY id DESC LIMIT 1")
+        id_venta = cursor.fetchone()[0]  # Tomar el primer (y único) valor de la consulta
+        connection.close()
+        return id_venta
 
 
 class NuevaCompraPopup(Popup):
