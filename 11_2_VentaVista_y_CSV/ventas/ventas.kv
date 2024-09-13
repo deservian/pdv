@@ -148,7 +148,7 @@
                 id: total
                 size_hint_x: .5
         BoxLayout:
-            size_hint_y: .25
+            size_hint_y: .35
             Label:
                 size_hint_x: .5
                 text: 'Recibido: '
@@ -183,6 +183,16 @@
                 size_hint_x: .5
         BoxLayout:
             size_hint_y: .25
+            Label:
+                size_hint_x: .5
+                text: 'Método de Pago: '
+            Spinner:
+                id: metodo_spinner
+                text: 'Selecciona un método de pago'
+                values: []  # Se llenará dinámicamente con los métodos de pago desde Python
+                size_hint_x: .5
+        BoxLayout:
+            size_hint_y: .15
             Button: 
                 id: boton_pagar
                 disabled: True
@@ -197,6 +207,7 @@
             text: ""
             color: 1, 0, 0, 1  # Texto en rojo
             size_hint_y: .1
+
 
 
 <NuevaCompraPopup>:

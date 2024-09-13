@@ -211,8 +211,9 @@ class PagarPopup(Popup):
         self.pagado_callback = pagado_callback
         self.ids.total.text = "{:.2f}".format(self.total)
 
-        # Llamada al método que carga los clientes
+        # Llamadas a métodos para cargar clientes y métodos de pago
         self.cargar_clientes()
+        self.cargar_metodos_pago()
 
     def cargar_clientes(self):
         # Conexión a la base de datos y consulta de los nombres de los clientes
@@ -225,6 +226,17 @@ class PagarPopup(Popup):
             self.ids.cliente_spinner.values = list(self.clientes_dict.keys())
         else:
             self.ids.cliente_spinner.values = ['No hay clientes disponibles']
+
+    def cargar_metodos_pago(self):
+        # Conexión a la base de datos y consulta de los métodos de pago
+        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        metodos_sql = QueriesSQLite.execute_read_query(connection, "SELECT nombre FROM metodos_pago")
+
+        # Si hay métodos de pago en la base de datos, cargar los nombres en el Spinner
+        if metodos_sql:
+            self.ids.metodo_spinner.values = [nombre[0] for nombre in metodos_sql]  # Extraer nombres de métodos
+        else:
+            self.ids.metodo_spinner.values = ['No hay métodos de pago disponibles']
 
     def mostrar_cambio(self):
         recibido = self.ids.recibido.text
@@ -240,9 +252,11 @@ class PagarPopup(Popup):
 
     def pagado(self):
         cliente_seleccionado = self.ids.cliente_spinner.text  # Obtener el cliente seleccionado
+        metodo_pago_seleccionado = self.ids.metodo_spinner.text  # Obtener el método de pago seleccionado
         if cliente_seleccionado != 'Selecciona un cliente' and cliente_seleccionado:
             ci_cliente = self.clientes_dict.get(cliente_seleccionado)  # Obtener el ci del cliente
             print(f"Venta registrada para el cliente: {cliente_seleccionado} (CI: {ci_cliente})")
+            print(f"Método de pago seleccionado: {metodo_pago_seleccionado}")
             if callable(self.pagado_callback):
                 self.pagado_callback(ci_cliente)  # Pasar el ci_cliente al callback
             self.dismiss()  # Cerrar el popup solo si se selecciona un cliente
@@ -304,7 +318,7 @@ class VentasWindow(BoxLayout):
         self.ids.sub_total.text = '$ ' + "{:.2f}".format(self.total)
 
     def modificar_producto(self, cambio=True, nuevo_total=None):
-        if cambio:    
+        if cambio:
             self.ids.rvs.modificar_articulo()
         else:
             self.total = nuevo_total
@@ -312,7 +326,7 @@ class VentasWindow(BoxLayout):
 
     def actualizar_hora(self, *args):
         self.ahora = self.ahora + timedelta(seconds=1)
-        self.ids.hora.text = self.ahora.strftime("%H:%M:%S")        
+        self.ids.hora.text = self.ahora.strftime("%H:%M:%S")
 
     def pagar(self):
         if self.ids.rvs.data:
@@ -342,6 +356,7 @@ class VentasWindow(BoxLayout):
         venta_tuple = (self.total, self.ahora, self.usuario['username'])
         venta_id = QueriesSQLite.execute_query(connection, venta, venta_tuple)
         ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) VALUES (?, ?, ?, ?, ?) """
+        insertar_inventario = """ INSERT INTO inventario (codigo_producto, tipo_movimiento, cantidad, fecha) VALUES (?, ?, ?, ?) """
 
         for producto in self.ids.rvs.data:
             nueva_cantidad = 0
@@ -349,12 +364,15 @@ class VentasWindow(BoxLayout):
                 nueva_cantidad = producto['cantidad_inventario'] - producto['cantidad_carrito']
             producto_tuple = (nueva_cantidad, producto['codigo'])
             ventas_detalle_tuple = (venta_id, producto['precio'], producto['codigo'], producto['cantidad_carrito'], ci_cliente)
+            inventario_tuple = (producto['codigo'], 'venta', producto['cantidad_carrito'], self.ahora.strftime("%Y-%m-%d %H:%M:%S"))
             actualizar_admin.append({'codigo': producto['codigo'], 'cantidad': nueva_cantidad})
 
             QueriesSQLite.execute_query(connection, ventas_detalle, ventas_detalle_tuple)
             QueriesSQLite.execute_query(connection, actualizar, producto_tuple)
+            QueriesSQLite.execute_query(connection, insertar_inventario, inventario_tuple)
+
         self.actualizar_productos(actualizar_admin)
-		
+
     def nueva_compra(self, desde_popup=False):
         if desde_popup:
             self.ids.rvs.data = []
@@ -373,11 +391,6 @@ class VentasWindow(BoxLayout):
 
     def admin(self):
         self.parent.parent.current = 'scrn_admin'
-        # connection = QueriesSQLite.create_connection("pdvDB.sqlite")
-        # select_products = "SELECT * from productos"
-        # productos = QueriesSQLite.execute_read_query(connection, select_products)
-        # for producto in productos:
-        #     print(producto)
 
     def signout(self):
         if self.ids.rvs.data:
