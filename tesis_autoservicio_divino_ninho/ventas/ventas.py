@@ -151,7 +151,7 @@ class RV(RecycleView):
             if self.data[i]['seleccionado']:
                 indice = i
                 break
-        return indic
+        return indice
 
 
 class ProductoPorNombrePopup(Popup):

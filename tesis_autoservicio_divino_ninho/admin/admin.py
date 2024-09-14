@@ -382,143 +382,79 @@ class ProductoPopup(Popup):
 
 
 class ClientesPopup(Popup):
-	def __init__(self, agregar_callback, **kwargs):
-		super(ClientesPopup, self).__init__(**kwargs)
-		self.agregar_callback=agregar_callback
+    def __init__(self, agregar_callback, **kwargs):
+        super(ClientesPopup, self).__init__(**kwargs)
+        self.agregar_callback = agregar_callback
 
-	def abrir(self, agregar, clientes=None):
-		if agregar:
-			self.ids.clientes_info_1.text='Nuevo cliente'
-			self.ids.clientes_ci.disabled=False
-		else:
-			self.ids.clientes_info_1.text = 'Modificar cliente'
-			self.ids.clientes_ci.text = str(clientes['ci'])
-			self.ids.clientes_ci.disabled = True
-			self.ids.clientes_nombre.text = str(clientes['nombre'])
-			self.ids.clientes_ciudad.text = str(clientes['ciudad'])
-			self.ids.clientes_telefono.text = str(clientes['telefono'])
-			self.ids.clientes_nacimiento.text = str(clientes['nacimiento'])
-		self.open()
+    def abrir(self, agregar, clientes=None):
+        if agregar:
+            self.ids.clientes_info_1.text = 'Nuevo cliente'
+            self.ids.clientes_ci.disabled = False
+        else:
+            self.ids.clientes_info_1.text = 'Modificar cliente'
+            self.ids.clientes_ci.text = clientes['ci']
+            self.ids.clientes_ci.disabled = True
+            self.ids.clientes_nombre.text = clientes['nombre']
+            self.ids.clientes_ciudad.text = clientes['ciudad']
+            self.ids.clientes_telefono.text = clientes['telefono']
+            self.ids.clientes_fecha.text = clientes['nacimiento']
+        self.open()
 
-	def verificar(self, producto_codigo, producto_nombre, producto_cantidad, producto_precio):
-		alert1 = 'Falta: '
-		alert2 = ''
-		validado = {}
-		
-		# Validación del código del producto
-		if not producto_codigo:
-			alert1 += 'Código. '
-			validado['codigo'] = False
-		else:
-			try:
-				numeric = int(producto_codigo)
-				validado['codigo'] = producto_codigo
-			except:
-				alert2 += 'Código no válido. '
-				validado['codigo'] = False
+    def verificar(self, clientes_ci, clientes_nombre, clientes_ciudad, clientes_telefono, clientes_nacimiento):
+        alert1 = 'Falta: '
+        alert2 = ''
+        validado = {}
 
-		# Validación del nombre del producto
-		if not producto_nombre:
-			alert1 += 'Nombre. '
-			validado['nombre'] = False
-		else:
-			validado['nombre'] = producto_nombre.lower()
+        if not clientes_ci:
+            alert1 += 'C.I. '
+            validado['ci'] = False
+        else:
+            try:
+                numeric = int(clientes_ci)
+                validado['ci'] = clientes_ci
+            except:
+                alert2 += 'C.I. no válido. '
+                validado['ci'] = False
 
-		# Validación del precio del producto
-		if not producto_precio:
-			alert1 += 'Precio. '
-			validado['precio'] = False
-		else:
-			try:
-				numeric = float(producto_precio)
-				validado['precio'] = producto_precio
-			except:
-				alert2 += 'Precio no válido. '
-				validado['precio'] = False
+        if not clientes_nombre:
+            alert1 += 'Nombre. '
+            validado['nombre'] = False
+        else:
+            validado['nombre'] = clientes_nombre.lower()
 
-		# Validación de la cantidad del producto
-		if not producto_cantidad:
-			alert1 += 'Cantidad. '
-			validado['cantidad'] = False
-		else:
-			try:
-				numeric = int(producto_cantidad)
-				validado['cantidad'] = producto_cantidad
-			except:
-				alert2 += 'Cantidad no válida. '
-				validado['cantidad'] = False
+        if not clientes_ciudad:
+            alert1 += 'Ciudad. '
+            validado['ciudad'] = False
+        else:
+            validado['ciudad'] = clientes_ciudad.lower()
 
-		# Verificación de campos validados
-		valores = list(validado.values())
-		if False in valores:
-			self.ids.no_valid_notif.text = alert1 + alert2
-			return
-		
-		self.ids.no_valid_notif.text = 'Validado'
-		validado['cantidad'] = int(validado['cantidad'])
-		validado['precio'] = float(validado['precio'])
-		
-		# Conectar a la base de datos
-		connection = sqlite3.connect("pdvDB.sqlite")
-		cursor = connection.cursor()
+        if not clientes_telefono:
+            alert1 += 'Telefono. '
+            validado['telefono'] = False
+        else:
+            validado['telefono'] = clientes_telefono
 
-		# Verificar si el producto ya existe
-		cursor.execute("SELECT COUNT(*) FROM productos WHERE codigo = ?", (validado['codigo'],))
-		existe = cursor.fetchone()[0]
+        if not clientes_nacimiento:
+            alert1 += 'Fecha de nac. '
+            validado['nacimiento'] = False
+        else:
+            try:
+                # Verificar que la fecha esté en el formato correcto
+                fecha_nacimiento = datetime.strptime(clientes_nacimiento, '%Y-%m-%d')
+                validado['nacimiento'] = clientes_nacimiento
+            except ValueError:
+                alert2 += 'Fecha no válida. '
+                validado['nacimiento'] = False
 
-		if existe:
-			# Si el producto existe, actualizarlo
-			actualizar_producto = """
-			UPDATE productos
-			SET nombre = ?, precio = ?, cantidad = ?
-			WHERE codigo = ?
-			"""
-			cursor.execute(actualizar_producto, (validado['nombre'], validado['precio'], validado['cantidad'], validado['codigo']))
-		else:
-			# Si el producto no existe, insertarlo
-			insertar_producto = """
-			INSERT INTO productos (codigo, nombre, precio, cantidad)
-			VALUES (?, ?, ?, ?)
-			"""
-			cursor.execute(insertar_producto, (validado['codigo'], validado['nombre'], validado['precio'], validado['cantidad']))
+        valores = list(validado.values())
 
-		# Actualizar el inventario
-		insertar_inventario = """
-		INSERT INTO inventario (codigo_producto, tipo_movimiento, cantidad, fecha)
-		VALUES (?, ?, ?, ?)
-		"""
-		tipo_movimiento = 'compra'
-		fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-		cursor.execute(insertar_inventario, (validado['codigo'], tipo_movimiento, validado['cantidad'], fecha_actual))
-		
-		# Actualizar o insertar en la tabla compras
-		proveedor_seleccionado = self.ids.btn_proveedores.text
-		cursor.execute("SELECT COUNT(*) FROM compras WHERE codigo = ?", (validado['codigo'],))
-		existe_en_compras = cursor.fetchone()[0]
+        if False in valores:
+            self.ids.no_valid_notif.text = alert1 + alert2
+        else:
+            self.ids.no_valid_notif.text = 'Validado'
+            self.agregar_callback(True, validado)
+            self.dismiss()
 
-		if existe_en_compras:
-			# Si el producto existe en compras, actualizarlo
-			actualizar_compra = """
-			UPDATE compras
-			SET nombre = ?, precio = ?, cantidad = ?, proveedor = ?
-			WHERE codigo = ?
-			"""
-			cursor.execute(actualizar_compra, (validado['nombre'], validado['precio'], validado['cantidad'], proveedor_seleccionado, validado['codigo']))
-		else:
-			# Si el producto no existe en compras, insertarlo
-			insertar_compra = """
-			INSERT INTO compras (codigo, nombre, precio, cantidad, proveedor)
-			VALUES (?, ?, ?, ?, ?)
-			"""
-			cursor.execute(insertar_compra, (validado['codigo'], validado['nombre'], validado['precio'], validado['cantidad'], proveedor_seleccionado))
-
-		# Confirmar cambios y cerrar conexión
-		connection.commit()
-		connection.close()
-
-		# Actualizar la interfaz después de agregar el producto
-		self.agregar_callback(True, validado)
-		self.dismiss()
 
 
 class VistaClientes(Screen):
@@ -610,18 +546,18 @@ class ProveedorPopup(Popup):
 		super(ProveedorPopup, self).__init__(**kwargs)
 		self.agregar_callback=agregar_callback
 
-	def abrir(self, agregar, producto=None):
+	def abrir(self, agregar, proveedor=None):
 		if agregar:
-			self.ids.proveedores_info_1.text='Agregar producto nuevo'
+			self.ids.proveedores_info_1.text='Agregar proveedor nuevo'
 			self.ids.proveedores_id.disabled=False
 		else:
-			self.ids.proveedores_info_1.text='Modificar producto'
-			self.ids.proveedores_id.text = str(producto['id'])
+			self.ids.proveedores_info_1.text='Modificar proveedor'
+			self.ids.proveedores_id.text = str(proveedor['id'])
 			self.ids.proveedores_id.disabled=True
-			self.ids.proveedores_nombre.text=str(producto['nombre'])
-			self.ids.proveedores_contacto.text=str(producto['contacto'])
-			self.ids.proveedores_telefono.text=str(producto['telefono'])
-			self.ids.proveedores_email.text=str(producto['email'])
+			self.ids.proveedores_nombre.text=str(proveedor['nombre'])
+			self.ids.proveedores_contacto.text=str(proveedor['contacto'])
+			self.ids.proveedores_telefono.text=str(proveedor['telefono'])
+			self.ids.proveedores_email.text=str(proveedor['email'])
 		self.open()
 
 	def verificar(self, proveedores_id, proveedores_nombre, proveedores_contacto, proveedores_telefono, proveedores_email):
@@ -685,7 +621,7 @@ class ProveedorPopup(Popup):
 
 	def agregar_proveedores(self, agregar=False, validado=None):
 		if agregar:
-			producto_tuple=tuple(validado.values())
+			proveedor_tuple=tuple(validado.values())
 			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
 			crear_proveedor="""
 			INSERT INTO
@@ -693,9 +629,9 @@ class ProveedorPopup(Popup):
 			VALUES
 				(?, ?, ?, ?, ?);
 			"""
-			QueriesSQLite.execute_query(connection, crear_proveedor, producto_tuple)
-			self.ids.rv_productos.data.append(validado)
-			self.ids.rv_productos.refresh_from_data()
+			QueriesSQLite.execute_query(connection, crear_proveedor, proveedor_tuple)
+			self.ids.rv_proveedores.data.append(validado)
+			self.ids.rv_proveedores.refresh_from_data()
 		else:
 			popup=ProveedorPopup(self.agregar_proveedores)
 			popup.abrir(True)
