@@ -8,7 +8,9 @@ from admin.admin import AdminWindow
 from ventas.ventas import VentasWindow
 
 # Configurar la ventana en pantalla completa
-Window.fullscreen = True
+Window.fullscreen = 'auto'  # Pantalla completa con ajuste automático
+Window.size = (1920, 1080)  # Tamaño estándar para 16:9, si se necesita
+Window.borderless = True  # Sin bordes para pantalla completa
 
 class MainLayout(BoxLayout):
     pass
