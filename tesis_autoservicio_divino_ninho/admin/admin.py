@@ -19,13 +19,16 @@ from datetime import datetime, timedelta
 import csv
 from pathlib import Path
 import os
-import sqlite3
+import psycopg2
 
 Builder.load_file('admin/admin.kv')
 
-def fecha_a_timestamp(fecha_str):
-    fecha = datetime.strptime(fecha_str, '%Y-%m-%d')
-    return fecha.timestamp()
+def fecha_a_timestamp(fecha_date):
+    # Convertir un objeto datetime.date a datetime
+    fecha_datetime = datetime.combine(fecha_date, datetime.min.time())
+    # Convertir a timestamp
+    timestamp = int(fecha_datetime.timestamp())
+    return timestamp
 
 # # Supongamos que data['nacimiento'] es una fecha en formato de string 'YYYY-MM-DD'
 # data = {'nacimiento': '2000-01-01'}
@@ -247,7 +250,7 @@ class ProductoPopup(Popup):
 
     def mostrar_proveedores(self):
         self.dropdown.clear_widgets()
-        connection = sqlite3.connect("pdvDB.sqlite")
+        connection = QueriesSQLite.create_connection()
         cursor = connection.cursor()
         cursor.execute("SELECT nombre FROM proveedores")
         proveedores = cursor.fetchall()
@@ -274,10 +277,10 @@ class ProductoPopup(Popup):
         else:
             try:
                 numeric = int(producto_codigo)
-                validado['codigo'] = producto_codigo
+                validado['codigo_producto'] = producto_codigo
             except:
                 alert2 += 'Código no válido. '
-                validado['codigo'] = False
+                validado['codigo_producto'] = False
 
         if not producto_nombre:
             alert1 += 'Nombre. '
@@ -318,33 +321,33 @@ class ProductoPopup(Popup):
         validado['precio'] = float(validado['precio'])
         
         # Conectar a la base de datos
-        connection = sqlite3.connect("pdvDB.sqlite")
+        connection = QueriesSQLite.create_connection()
         cursor = connection.cursor()
 
         # Verificar si el producto ya existe
-        cursor.execute("SELECT COUNT(*) FROM productos WHERE codigo = ?", (validado['codigo'],))
+        cursor.execute("SELECT COUNT(*) FROM productos WHERE codigo = %s", (validado['codigo'],))
         existe = cursor.fetchone()[0]
 
         if existe:
             # Si el producto existe, actualizarlo
             actualizar_producto = """
             UPDATE productos
-            SET nombre = ?, precio = ?, cantidad = ?
-            WHERE codigo = ?
+            SET nombre = %s, precio = %s, cantidad = %s
+            WHERE codigo = %s
             """
             cursor.execute(actualizar_producto, (validado['nombre'], validado['precio'], validado['cantidad'], validado['codigo']))
         else:
             # Si el producto no existe, insertarlo
             insertar_producto = """
             INSERT INTO productos (codigo, nombre, precio, cantidad)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
             """
             cursor.execute(insertar_producto, (validado['codigo'], validado['nombre'], validado['precio'], validado['cantidad']))
 
         # Insertar en la tabla inventario
         insertar_inventario = """
         INSERT INTO inventario (codigo_producto, tipo_movimiento, cantidad, fecha)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
         """
         tipo_movimiento = 'compra'
         fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -352,22 +355,22 @@ class ProductoPopup(Popup):
         
         # Actualizar o insertar en la tabla compras
         proveedor_seleccionado = self.ids.btn_proveedores.text
-        cursor.execute("SELECT COUNT(*) FROM compras WHERE codigo = ?", (validado['codigo'],))
+        cursor.execute("SELECT COUNT(*) FROM compras WHERE codigo = %s", (validado['codigo'],))
         existe_en_compras = cursor.fetchone()[0]
 
         if existe_en_compras:
             # Si el producto existe en compras, actualizarlo
             actualizar_compra = """
             UPDATE compras
-            SET nombre = ?, precio = ?, cantidad = ?, proveedor = ?
-            WHERE codigo = ?
+            SET nombre = %s, precio = %s, cantidad = %s, proveedor = %s
+            WHERE codigo = %s
             """
             cursor.execute(actualizar_compra, (validado['nombre'], validado['precio'], validado['cantidad'], proveedor_seleccionado, validado['codigo']))
         else:
             # Si el producto no existe en compras, insertarlo
             insertar_compra = """
             INSERT INTO compras (codigo, nombre, precio, cantidad, proveedor)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
             """
             cursor.execute(insertar_compra, (validado['codigo'], validado['nombre'], validado['precio'], validado['cantidad'], proveedor_seleccionado))
 
@@ -464,7 +467,7 @@ class VistaClientes(Screen):
 
 	def cargar_clientes(self, *args):
 		_clientes=[]
-		connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+		connection = QueriesSQLite.create_connection()
 		inventario_sql=QueriesSQLite.execute_read_query(connection, "SELECT * from clientes")
 		if inventario_sql:
 			for cliente in inventario_sql:
@@ -482,12 +485,12 @@ class VistaClientes(Screen):
 	def agregar_clientes(self, agregar=False, validado=None):
 		if agregar:
 			clientes_tuple=tuple(validado.values())
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			crear_clientes="""
 			INSERT INTO
 				clientes (ci, nombre, ciudad, telefono, nacimiento)
 			VALUES
-				(?, ?, ?, ?, ?);
+				(%s, %s, %s, %s, %s);
 			"""
 			QueriesSQLite.execute_query(connection, crear_clientes, clientes_tuple)
 			self.ids.rv_clientes.data.append(validado)
@@ -500,14 +503,14 @@ class VistaClientes(Screen):
 		indice=self.ids.rv_clientes.dato_seleccionado()
 		if modificar:
 			clientes_tuple=(validado['nombre'], validado['ciudad'], validado['telefono'], validado['nacimiento'], validado['ci'])
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			actualizar="""
 			UPDATE
 				clientes
 			SET
-				nombre=?, ciudad=?, telefono=?, nacimiento=?
+				nombre=%s, ciudad=%s, telefono=%s, nacimiento=%s
 			WHERE
-				ci=?
+				ci=%s
 			"""
 			QueriesSQLite.execute_query(connection, actualizar, clientes_tuple)
 			self.ids.rv_clientes.data[indice]['nombre']=validado['nombre']
@@ -525,7 +528,7 @@ class VistaClientes(Screen):
 		indice=self.ids.rv_clientes.dato_seleccionado()
 		if indice>=0:
 			clientes_tuple=(self.ids.rv_clientes.data[indice]['ci'],)
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			borrar= """DELETE from clientes WHERE ci =? """
 			QueriesSQLite.execute_query(connection, borrar, clientes_tuple)
 			self.ids.rv_clientes.data.pop(indice)
@@ -622,12 +625,12 @@ class ProveedorPopup(Popup):
 	def agregar_proveedores(self, agregar=False, validado=None):
 		if agregar:
 			proveedor_tuple=tuple(validado.values())
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			crear_proveedor="""
 			INSERT INTO
 				proveedores (id, nombre, contacto, telefono, email)
 			VALUES
-				(?, ?, ?, ?, ?);
+				(%s, %s, %s, %s, %s);
 			"""
 			QueriesSQLite.execute_query(connection, crear_proveedor, proveedor_tuple)
 			self.ids.rv_proveedores.data.append(validado)
@@ -643,7 +646,7 @@ class VistaProductos(Screen):
 
 	def cargar_productos(self, *args):
 		_productos=[]
-		connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+		connection = QueriesSQLite.create_connection()
 		inventario_sql=QueriesSQLite.execute_read_query(connection, "SELECT * from productos")
 		if inventario_sql: # agregado!!!
 			for producto in inventario_sql:
@@ -653,12 +656,12 @@ class VistaProductos(Screen):
 	def agregar_producto(self, agregar=False, validado=None):
 		if agregar:
 			producto_tuple=tuple(validado.values())
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			crear_producto="""
 			INSERT INTO
 				productos (codigo, nombre, precio, cantidad)
 			VALUES
-				(?, ?, ?, ?);
+				(%s, %s, %s, %s);
 			"""
 			QueriesSQLite.execute_query(connection, crear_producto, producto_tuple)
 			self.ids.rv_productos.data.append(validado)
@@ -671,14 +674,14 @@ class VistaProductos(Screen):
 		indice=self.ids.rv_productos.dato_seleccionado()
 		if modificar:
 			producto_tuple=(validado['nombre'], validado['precio'], validado['cantidad'], validado['codigo'])
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			actualizar="""
 			UPDATE
 				productos
 			SET
-				nombre=?, precio=?, cantidad=?
+				nombre=%s, precio=%s, cantidad=%s
 			WHERE
-				codigo=?
+				codigo=%s
 			"""
 			QueriesSQLite.execute_query(connection, actualizar, producto_tuple)
 			self.ids.rv_productos.data[indice]['nombre']=validado['nombre']
@@ -695,8 +698,8 @@ class VistaProductos(Screen):
 		indice=self.ids.rv_productos.dato_seleccionado()
 		if indice>=0:
 			producto_tuple=(self.ids.rv_productos.data[indice]['codigo'],)
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
-			borrar= """DELETE from productos WHERE codigo =? """
+			connection = QueriesSQLite.create_connection()
+			borrar= """DELETE from productos WHERE codigo =%s """
 			QueriesSQLite.execute_query(connection, borrar, producto_tuple)
 			self.ids.rv_productos.data.pop(indice)
 			self.ids.rv_productos.refresh_from_data()
@@ -717,7 +720,7 @@ class VistaProveedores(Screen):
 
 	def cargar_proveedores(self, *args):
 		_proveedores=[]
-		connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+		connection = QueriesSQLite.create_connection()
 		inventario_sql=QueriesSQLite.execute_read_query(connection, "SELECT * from proveedores")
 		if inventario_sql: # agregado!!!
 			for proveedores in inventario_sql:
@@ -727,12 +730,12 @@ class VistaProveedores(Screen):
 	def agregar_proveedores(self, agregar=False, validado=None):
 		if agregar:
 			proveedores_tuple=tuple(validado.values())
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			crear_proveedor="""
 			INSERT INTO
 				proveedores (id, nombre, contacto, telefono, email)
 			VALUES
-				(?, ?, ?, ?, ?);
+				(%s, %s, %s, %s, %s);
 			"""
 			QueriesSQLite.execute_query(connection, crear_proveedor, proveedores_tuple)
 			self.ids.rv_proveedores.data.append(validado)
@@ -745,14 +748,14 @@ class VistaProveedores(Screen):
 		indice=self.ids.rv_proveedores.dato_seleccionado()
 		if modificar:
 			proveedores_tuple=(validado['id'], validado['nombre'], validado['contacto'], validado['telefono'], validado['email'])
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			actualizar="""
 			UPDATE
 				proveedores
 			SET
-				nombre=?, contacto=?, telefono=?, email=?
+				nombre=%s, contacto=%s, telefono=%s, email=%s
 			WHERE
-				id=?
+				id=%s
 			"""
 			QueriesSQLite.execute_query(connection, actualizar, proveedores_tuple)
 			self.ids.rv_proveedores.data[indice]['nombre']=validado['nombre']
@@ -770,8 +773,8 @@ class VistaProveedores(Screen):
 		indice=self.ids.rv_proveedores.dato_seleccionado()
 		if indice>=0:
 			proveedores_tuple=(self.ids.rv_proveedores.data[indice]['id'],)
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
-			borrar= """DELETE from proveedores WHERE id =? """
+			connection = QueriesSQLite.create_connection()
+			borrar= """DELETE from proveedores WHERE id =%s """
 			QueriesSQLite.execute_query(connection, borrar, proveedores_tuple)
 			self.ids.rv_proveedores.data.pop(indice)
 			self.ids.rv_proveedores.refresh_from_data()
@@ -853,7 +856,7 @@ class VistaUsuarios(Screen):
 
 	def cargar_usuarios(self, *args):
 		_usuarios=[]
-		connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+		connection = QueriesSQLite.create_connection()
 		usuarios_sql=QueriesSQLite.execute_read_query(connection, "SELECT * from usuarios")
 		if usuarios_sql: # agregado!!!
 			for usuario in usuarios_sql:
@@ -863,12 +866,12 @@ class VistaUsuarios(Screen):
 	def agregar_usuario(self, agregar=False, validado=None):
 		if agregar:
 			usuario_tuple=tuple(validado.values())
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			crear_usuario = """
 			INSERT INTO
 				usuarios (username, nombre, password, tipo)
 			VALUES
-				(?,?,?,?);
+				(%s,%s,%s,%s);
 			"""
 			QueriesSQLite.execute_query(connection, crear_usuario, usuario_tuple)
 			self.ids.rv_usuarios.data.append(validado)
@@ -881,14 +884,14 @@ class VistaUsuarios(Screen):
 		indice = self.ids.rv_usuarios.dato_seleccionado()
 		if modificar:
 			usuario_tuple=(validado['nombre'],validado['password'],validado['tipo'],validado['username'])
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
+			connection = QueriesSQLite.create_connection()
 			actualizar = """
 			UPDATE
 			  usuarios
 			SET
-			  nombre=?, password=?, tipo = ?
+			  nombre=%s, password=%s, tipo = %s
 			WHERE
-			  username = ?
+			  username = %s
 			"""
 			QueriesSQLite.execute_query(connection, actualizar, usuario_tuple)
 			self.ids.rv_usuarios.data[indice]['nombre']=validado['nombre']
@@ -906,8 +909,8 @@ class VistaUsuarios(Screen):
 		indice = self.ids.rv_usuarios.dato_seleccionado()
 		if indice>=0:
 			usuario_tuple=(self.ids.rv_usuarios.data[indice]['username'],)
-			connection=QueriesSQLite.create_connection("pdvDB.sqlite")
-			borrar = """DELETE from usuarios where username = ?"""
+			connection = QueriesSQLite.create_connection()
+			borrar = """DELETE from usuarios where username = %s"""
 			QueriesSQLite.execute_query(connection, borrar, usuario_tuple)
 			self.ids.rv_usuarios.data.pop(indice)
 			self.ids.rv_usuarios.refresh_from_data()
@@ -915,8 +918,8 @@ class VistaUsuarios(Screen):
 
 # igual esto es nuevo tambien en kv
 class InfoVentaPopup(Popup):
-	connection=QueriesSQLite.create_connection("pdvDB.sqlite")
-	select_item_query=" SELECT nombre FROM productos WHERE codigo = ?  "
+	connection = QueriesSQLite.create_connection()
+	select_item_query=" SELECT nombre FROM productos WHERE codigo = %s  "
 	def __init__(self, venta, **kwargs):
 		super(InfoVentaPopup, self).__init__(**kwargs)	
 		self.venta=[{"codigo": producto[3], "producto": QueriesSQLite.execute_read_query(self.connection, self.select_item_query, (producto[3],))[0][0], "cantidad": producto[4], "precio": producto[2], "total": producto[4]*producto[2]} for producto in venta]
@@ -939,8 +942,8 @@ class VistaVentas(Screen):
 		super().__init__(**kwargs)
 
 	def crear_csv(self):
-		connection=QueriesSQLite.create_connection("pdvDB.sqlite")
-		select_item_query=" SELECT nombre FROM productos WHERE codigo=? "
+		connection = QueriesSQLite.create_connection()
+		select_item_query=" SELECT nombre FROM productos WHERE codigo=%s "
 		if self.ids.ventas_rv.data:
 			path = Path(__file__).absolute().parent
 
@@ -992,8 +995,8 @@ class VistaVentas(Screen):
 		_ventas=[]
 		_total_productos=[]
 
-		select_ventas_query = " SELECT * FROM ventas WHERE fecha BETWEEN ? AND ? "
-		selec_productos_query = " SELECT * FROM ventas_detalle WHERE id_venta=? "
+		select_ventas_query = " SELECT * FROM ventas WHERE fecha BETWEEN %s AND %s "
+		selec_productos_query = " SELECT * FROM ventas_detalle WHERE id_venta=%s "
 
 		self.ids.ventas_rv.data=[]
 		if choice=='Default':

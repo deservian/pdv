@@ -161,7 +161,7 @@ class ProductoPorNombrePopup(Popup):
 		self.agregar_producto=agregar_producto_callback
 
 	def mostrar_articulos(self):
-		connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+		connection = QueriesSQLite.create_connection()
 		inventario_sql=QueriesSQLite.execute_read_query(connection, "SELECT * from productos")
 		self.open()
 		for nombre in inventario_sql:
@@ -213,7 +213,7 @@ class PagarPopup(Popup):
         self.cargar_metodos_pago()
 
     def cargar_clientes(self):
-        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        connection = QueriesSQLite.create_connection()
         clientes_sql = QueriesSQLite.execute_read_query(connection, "SELECT nombre, ci FROM clientes")
 
         if clientes_sql:
@@ -223,7 +223,7 @@ class PagarPopup(Popup):
             self.ids.cliente_spinner.values = ['No hay clientes disponibles']
 
     def cargar_metodos_pago(self):
-        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        connection = QueriesSQLite.create_connection()
         metodos_sql = QueriesSQLite.execute_read_query(connection, "SELECT id, nombre FROM metodos_pago")
 
         if metodos_sql:
@@ -256,12 +256,12 @@ class PagarPopup(Popup):
             id_venta = self.obtener_id_venta()
 
             # Insertar el monto de la venta en la tabla ventas_pagos
-            connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+            connection = QueriesSQLite.create_connection()
             cursor = connection.cursor()
 
             insertar_pago = """
             INSERT INTO ventas_pagos (id_venta, metodo_pago_id, monto)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             """
             cursor.execute(insertar_pago, (id_venta, metodo_pago_id, self.total))  # Guardar el monto real de la venta
 
@@ -281,7 +281,7 @@ class PagarPopup(Popup):
 
     def obtener_id_venta(self):
         # Obtener el último id de la tabla ventas
-        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        connection = QueriesSQLite.create_connection()
         cursor = connection.cursor()
         cursor.execute("SELECT id FROM ventas ORDER BY id DESC LIMIT 1")
         id_venta = cursor.fetchone()[0]  # Tomar el primer (y único) valor de la consulta
@@ -310,7 +310,7 @@ class VentasWindow(BoxLayout):
         Clock.schedule_interval(self.actualizar_hora, 1)
 
     def agregar_producto_codigo(self, codigo):
-        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+        connection = QueriesSQLite.create_connection()
         inventario_sql = QueriesSQLite.execute_read_query(connection, "SELECT * from productos")
         for producto in inventario_sql:
             if codigo == producto[0]:
@@ -371,15 +371,15 @@ class VentasWindow(BoxLayout):
         self.ids.buscar_nombre.disabled = True
         self.ids.pagar.disabled = True
 
-        connection = QueriesSQLite.create_connection("pdvDB.sqlite")
-        actualizar = """ UPDATE productos SET cantidad=? WHERE codigo=? """
+        connection = QueriesSQLite.create_connection()
+        actualizar = """ UPDATE productos SET cantidad=%s WHERE codigo=%s """
         actualizar_admin = []
 
-        venta = """ INSERT INTO ventas (total, fecha, username) VALUES (?, ?, ?) """
+        venta = """ INSERT INTO ventas (total, fecha, username) VALUES (%s, %s, %s) """
         venta_tuple = (self.total, self.ahora, self.usuario['username'])
         venta_id = QueriesSQLite.execute_query(connection, venta, venta_tuple)
-        ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) VALUES (?, ?, ?, ?, ?) """
-        insertar_inventario = """ INSERT INTO inventario (codigo_producto, tipo_movimiento, cantidad, fecha) VALUES (?, ?, ?, ?) """
+        ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) VALUES (%s, %s, %s, %s, %s) """
+        insertar_inventario = """ INSERT INTO inventario (codigo_producto, tipo_movimiento, cantidad, fecha) VALUES (%s, %s, %s, %s) """
 
         for producto in self.ids.rvs.data:
             nueva_cantidad = 0

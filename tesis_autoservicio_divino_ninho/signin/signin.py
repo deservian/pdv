@@ -12,7 +12,7 @@ class SigninWindow(BoxLayout):
 		self.poner_usuario=poner_usuario_callback
 
 	def verificar_usuario(self, username, password):
-		connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+		connection = QueriesSQLite.create_connection()
 		users=QueriesSQLite.execute_read_query(connection, "SELECT * from usuarios")
 		if users:
 			if username=='' or password=='':
@@ -42,7 +42,7 @@ class SigninWindow(BoxLayout):
 					self.ids.signin_notificacion.text='Usuario o contraseña incorrecta'
 		else:
 		    usuario_tuple=('usuario', 'Usuario Inicio', '123', 'admin')
-		    crear_usuario = "INSERT INTO usuarios (username, nombre, password, tipo) VALUES (?,?,?,?);"
+		    crear_usuario = "INSERT INTO usuarios (username, nombre, password, tipo) VALUES (%s,%s,%s,%s);"
 		    QueriesSQLite.execute_query(connection, crear_usuario, usuario_tuple)
 		    self.ids.signin_notificacion.text='Se creo primer usuario. usuario 123'
 
