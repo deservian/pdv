@@ -988,67 +988,69 @@ class VistaVentas(Screen):
 
 	def cargar_venta(self, choice='Default'):
 		connection = QueriesSQLite.create_connection()
-		valid_input=True
-		final_sum=0
-		f_inicio=datetime.strptime('01/01/00', '%d/%m/%y')
-		f_fin=datetime.strptime('31/12/2099', '%d/%m/%Y')
+		valid_input = True
+		final_sum = 0
+		f_inicio = datetime.strptime('01/01/00', '%d/%m/%y')
+		f_fin = datetime.strptime('31/12/2099', '%d/%m/%Y')
 
-		_ventas=[]
-		_total_productos=[]
+		_ventas = []
+		_total_productos = []
 
-		select_ventas_query = " SELECT * FROM ventas WHERE fecha BETWEEN %s AND %s "
-		selec_productos_query = " SELECT * FROM ventas_detalle WHERE id_venta=%s "
+		select_ventas_query = "SELECT * FROM ventas WHERE fecha BETWEEN %s AND %s"
+		selec_productos_query = "SELECT * FROM ventas_detalle WHERE id_venta=%s"
 
-		self.ids.ventas_rv.data=[]
-		if choice=='Default':
-			f_inicio=datetime.today().date()
-			f_fin=f_inicio+timedelta(days=1)
-			self.ids.date_id.text=str(f_inicio.strftime("%d-%m-%y"))
-		elif choice=='Date':
-			date=self.ids.single_date.text
+		self.ids.ventas_rv.data = []
+		if choice == 'Default':
+			f_inicio = datetime.today().date()
+			f_fin = f_inicio + timedelta(days=1)
+			self.ids.date_id.text = str(f_inicio.strftime("%d-%m-%y"))
+		elif choice == 'Date':
+			date = self.ids.single_date.text
 			try:
-				f_elegida=datetime.strptime(date,'%d/%m/%y')
+				f_elegida = datetime.strptime(date, '%d/%m/%y')
 			except:
-				valid_input=False
+				valid_input = False
 			if valid_input:
-				f_inicio=f_elegida
-				f_fin=f_elegida+timedelta(days=1)
-				self.ids.date_id.text=f_elegida.strftime('%d-%m-%y')
+				f_inicio = f_elegida
+				f_fin = f_elegida + timedelta(days=1)
+				self.ids.date_id.text = f_elegida.strftime('%d-%m-%y')
 		else:
 			if self.ids.initial_date.text:
-				initial_date=self.ids.initial_date.text
+				initial_date = self.ids.initial_date.text
 				try:
-					f_inicio=datetime.strptime(initial_date, '%d/%m/%y')
+					f_inicio = datetime.strptime(initial_date, '%d/%m/%y')
 				except:
-					valid_input=False
+					valid_input = False
 			if self.ids.last_date.text:
-				last_date=self.ids.last_date.text
+				last_date = self.ids.last_date.text
 				try:
-					f_fin=datetime.strptime(last_date, '%d/%m/%y')
+					f_fin = datetime.strptime(last_date, '%d/%m/%y')
 				except:
-					valid_input=False
+					valid_input = False
 			if valid_input:
-				self.ids.date_id.text=f_inicio.strftime("%d-%m-%y")+" - "+f_fin.strftime("%d-%m-%y")
+				self.ids.date_id.text = f_inicio.strftime("%d-%m-%y") + " - " + f_fin.strftime("%d-%m-%y")
 
 		if valid_input:
-			inicio_fin=(f_inicio, f_fin)
-			ventas_sql=QueriesSQLite.execute_read_query(connection, select_ventas_query, inicio_fin)
+			inicio_fin = (f_inicio, f_fin)
+			ventas_sql = QueriesSQLite.execute_read_query(connection, select_ventas_query, inicio_fin)
 			if ventas_sql:
 				for venta in ventas_sql:
-					final_sum+=venta[1]
-					ventas_detalle_sql=QueriesSQLite.execute_read_query(connection, selec_productos_query, (venta[0],))
+					final_sum += venta[1]
+					ventas_detalle_sql = QueriesSQLite.execute_read_query(connection, selec_productos_query, (venta[0],))
 					_total_productos.append(ventas_detalle_sql)
-					count=0
+					count = 0
 					for producto in ventas_detalle_sql:
-						count+=producto[4]
-					_ventas.append({"username": venta[3], "productos": count, "total": venta[1], "fecha": datetime.strptime(venta[2], '%Y-%m-%d %H:%M:%S.%f')})
+						count += producto[4]
+					# Si venta[2] ya es un objeto datetime, usa directamente
+					_ventas.append({"username": venta[3], "productos": count, "total": venta[1], "fecha": venta[2]})
 				self.ids.ventas_rv.agregar_datos(_ventas)
-				self.productos_actuales=_total_productos
-		self.ids.final_sum.text='$ '+str("{:.0f}".format(final_sum))
-		self.ids.initial_date.text=''
-		self.ids.last_date.text=''
-		self.ids.single_date.text=''
-		self.ids.notificacion.text='Datos de Ventas'
+				self.productos_actuales = _total_productos
+		self.ids.final_sum.text = '$ ' + str("{:.0f}".format(final_sum))
+		self.ids.initial_date.text = ''
+		self.ids.last_date.text = ''
+		self.ids.single_date.text = ''
+		self.ids.notificacion.text = 'Datos de Ventas'
+
 
 
 #import dropdown tambien!!!

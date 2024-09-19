@@ -423,8 +423,6 @@ class VentasWindow(BoxLayout):
         connection = QueriesSQLite.create_connection()
         try:
             with connection.cursor() as cursor:
-                connection.autocommit = False
-
                 # Inserción en la tabla 'ventas' y obtención del ID
                 insertar_venta = """ 
                 INSERT INTO ventas (total, fecha, username) 
@@ -487,7 +485,6 @@ class VentasWindow(BoxLayout):
             # En caso de error, revertir la transacción
             connection.rollback()
             print(f"Error durante la transacción: {e}")
-            self.ids.notificacion_falla.text = 'Error durante la transacción'
 
         finally:
             # Cerrar la conexión
