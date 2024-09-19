@@ -207,6 +207,7 @@ class PagarPopup(Popup):
         self.total = total
         self.pagado_callback = pagado_callback
         self.ids.total.text = "{:.0f}".format(self.total)
+        self.ahora = datetime.now()
 
         # Llamadas a métodos para cargar clientes y métodos de pago
         self.cargar_clientes()
@@ -255,37 +256,87 @@ class PagarPopup(Popup):
             # Obtener el id de la venta
             id_venta = self.obtener_id_venta()
 
-            # Insertar el monto de la venta en la tabla ventas_pagos
-            connection = QueriesSQLite.create_connection()
-            cursor = connection.cursor()
+            # Verificar si se obtuvo un id de venta válido
+            if id_venta is not None:
+                # Insertar el monto de la venta en la tabla ventas_pagos
+                connection = QueriesSQLite.create_connection()
+                cursor = connection.cursor()
 
-            insertar_pago = """
-            INSERT INTO ventas_pagos (id_venta, metodo_pago_id, monto)
-            VALUES (%s, %s, %s)
-            """
-            cursor.execute(insertar_pago, (id_venta, metodo_pago_id, self.total))  # Guardar el monto real de la venta
+                insertar_pago = """
+                INSERT INTO ventas_pagos (id_venta, metodo_pago_id, monto)
+                VALUES (%s, %s, %s)
+                """
+                cursor.execute(insertar_pago, (id_venta, metodo_pago_id, self.total))  # Guardar el monto real de la venta
 
-            connection.commit()
-            connection.close()
+                connection.commit()
+                connection.close()
 
-            print(f"Venta registrada para el cliente: {cliente_seleccionado} (CI: {ci_cliente})")
-            print(f"Método de pago seleccionado: {metodo_pago_seleccionado}, Monto real de la venta: {self.total}")
+                print(f"Venta registrada para el cliente: {cliente_seleccionado} (CI: {ci_cliente})")
+                print(f"Método de pago seleccionado: {metodo_pago_seleccionado}, Monto real de la venta: {self.total}")
 
-            if callable(self.pagado_callback):
-                self.pagado_callback(ci_cliente)  # Pasar el ci_cliente al callback
+                if callable(self.pagado_callback):
+                    self.pagado_callback(ci_cliente)  # Pasar el ci_cliente al callback
 
-            self.dismiss()  # Cerrar el popup solo si se selecciona un cliente
+                self.dismiss()  # Cerrar el popup solo si se selecciona un cliente
+            else:
+                print("Error: No se pudo obtener un ID de venta válido")
         else:
             self.ids.cliente_error.text = "Por favor selecciona un cliente"
             self.ids.cliente_error.color = (1, 0, 0, 1)  # Color rojo para el mensaje
 
+    # def obtener_id_venta(self):
+    #     # Obtener el último id de la tabla ventas
+    #     connection = QueriesSQLite.create_connection()
+    #     cursor = connection.cursor()
+    #     cursor.execute("SELECT id FROM ventas ORDER BY id DESC LIMIT 1")
+    #     resultado = cursor.fetchone()
+    #     connection.close()
+    
+    #     if resultado:
+    #         id_venta = resultado[0]
+    #     else:
+    #         id_venta = None  # O un valor por defecto si es necesario
+        
+    #     return id_venta
+
+    # def obtener_id_venta(self):
+    #     """Función para insertar la venta y obtener su ID."""
+    #     connection = QueriesSQLite.create_connection()
+    #     cursor = connection.cursor()
+
+    #     # Inserta la venta y retorna el ID generado
+    #     insertar_venta = """
+    #     INSERT INTO ventas (total, fecha, username)
+    #     VALUES (%s, %s, %s) RETURNING id
+    #     """
+    #     cursor.execute(insertar_venta, (self.total, self.ahora, self.usuario['username']))
+        
+    #     # Obtener el id de la venta
+    #     id_venta = cursor.fetchone()[0]
+        
+    #     connection.commit()
+    #     connection.close()
+        
+    #     return id_venta
+
     def obtener_id_venta(self):
-        # Obtener el último id de la tabla ventas
+        """Función para insertar la venta y obtener su ID."""
         connection = QueriesSQLite.create_connection()
-        cursor = connection.cursor()
-        cursor.execute("SELECT id FROM ventas ORDER BY id DESC LIMIT 1")
-        id_venta = cursor.fetchone()[0]  # Tomar el primer (y único) valor de la consulta
+        cursor = connection.cursor()  # Definir el cursor
+
+        # Inserta la venta y retorna el ID generado
+        insertar_venta = """
+        INSERT INTO ventas (total, fecha, username)
+        VALUES (%s, %s, %s) RETURNING id
+        """
+        cursor.execute(insertar_venta, (self.total, self.ahora, self.usuario['username']))
+
+        # Obtener el id de la venta
+        id_venta = cursor.fetchone()[0]  # Obtener el ID devuelto por la consulta
+
+        connection.commit()
         connection.close()
+
         return id_venta
 
 
@@ -311,19 +362,18 @@ class VentasWindow(BoxLayout):
 
     def agregar_producto_codigo(self, codigo):
         connection = QueriesSQLite.create_connection()
-        inventario_sql = QueriesSQLite.execute_read_query(connection, "SELECT * from productos")
+        inventario_sql = QueriesSQLite.execute_read_query(connection, "SELECT * FROM productos WHERE codigo = %s", (codigo,))
         for producto in inventario_sql:
-            if codigo == producto[0]:
-                articulo = {}
-                articulo['codigo'] = producto[0]
-                articulo['nombre'] = producto[1]
-                articulo['precio'] = producto[2]
-                articulo['cantidad_carrito'] = 1
-                articulo['cantidad_inventario'] = producto[3]
-                articulo['precio_total'] = producto[2]
-                self.agregar_producto(articulo)
-                self.ids.buscar_codigo.text = ''
-                break
+            articulo = {}
+            articulo['codigo'] = producto[0]
+            articulo['nombre'] = producto[1]
+            articulo['precio'] = producto[2]
+            articulo['cantidad_carrito'] = 1
+            articulo['cantidad_inventario'] = producto[3]
+            articulo['precio_total'] = producto[2]
+            self.agregar_producto(articulo)
+            self.ids.buscar_codigo.text = ''
+            break
 
     def agregar_producto_nombre(self, nombre):
         self.ids.buscar_nombre.text = ''
@@ -354,17 +404,16 @@ class VentasWindow(BoxLayout):
     def pagar(self):
         if self.ids.rvs.data:
             popup = PagarPopup(self.total, self.pagado)
+            popup.usuario = self.usuario
             popup.open()
         else:
             self.ids.notificacion_falla.text = 'No hay nada que pagar'
 
     def pagado(self, ci_cliente=None):
         if ci_cliente:
-            # Aquí es donde puedes usar el ci_cliente para registrar la venta
             print(f"CI del cliente para la venta: {ci_cliente}")
 
-        # Código existente para registrar la venta
-        self.ids.notificacion_exito.text = 'Compra realizada con exito'
+        self.ids.notificacion_exito.text = 'Compra realizada con éxito'
         self.ids.notificacion_falla.text = ''
         self.ids.total.text = "{:.0f}".format(self.total)
         self.ids.buscar_codigo.disabled = True
@@ -372,29 +421,80 @@ class VentasWindow(BoxLayout):
         self.ids.pagar.disabled = True
 
         connection = QueriesSQLite.create_connection()
-        actualizar = """ UPDATE productos SET cantidad=%s WHERE codigo=%s """
-        actualizar_admin = []
+        try:
+            with connection.cursor() as cursor:
+                connection.autocommit = False
 
-        venta = """ INSERT INTO ventas (total, fecha, username) VALUES (%s, %s, %s) """
-        venta_tuple = (self.total, self.ahora, self.usuario['username'])
-        venta_id = QueriesSQLite.execute_query(connection, venta, venta_tuple)
-        ventas_detalle = """ INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) VALUES (%s, %s, %s, %s, %s) """
-        insertar_inventario = """ INSERT INTO inventario (codigo_producto, tipo_movimiento, cantidad, fecha) VALUES (%s, %s, %s, %s) """
+                # Inserción en la tabla 'ventas' y obtención del ID
+                insertar_venta = """ 
+                INSERT INTO ventas (total, fecha, username) 
+                VALUES (%s, %s, %s) RETURNING id 
+                """
+                venta_tuple = (self.total, self.ahora, self.usuario['username'])
+                cursor.execute(insertar_venta, venta_tuple)
+                venta_id = cursor.fetchone()[0]  # Obtener el ID de la venta
 
-        for producto in self.ids.rvs.data:
-            nueva_cantidad = 0
-            if producto['cantidad_inventario'] - producto['cantidad_carrito'] > 0:
-                nueva_cantidad = producto['cantidad_inventario'] - producto['cantidad_carrito']
-            producto_tuple = (nueva_cantidad, producto['codigo'])
-            ventas_detalle_tuple = (venta_id, producto['precio'], producto['codigo'], producto['cantidad_carrito'], ci_cliente)
-            inventario_tuple = (producto['codigo'], 'venta', producto['cantidad_carrito'], self.ahora.strftime("%Y-%m-%d %H:%M:%S"))
-            actualizar_admin.append({'codigo': producto['codigo'], 'cantidad': nueva_cantidad})
+                # Definir las consultas para los detalles de venta e inventario
+                insertar_ventas_detalle = """ 
+                INSERT INTO ventas_detalle(id_venta, precio, producto, cantidad, cliente_ci) 
+                VALUES (%s, %s, %s, %s, %s) 
+                """
+                insertar_inventario = """ 
+                INSERT INTO inventario (codigo_producto, tipo_movimiento, cantidad, fecha) 
+                VALUES (%s, %s, %s, %s) 
+                """
+                actualizar_producto = """ 
+                UPDATE productos SET cantidad = %s WHERE codigo = %s 
+                """
 
-            QueriesSQLite.execute_query(connection, ventas_detalle, ventas_detalle_tuple)
-            QueriesSQLite.execute_query(connection, actualizar, producto_tuple)
-            QueriesSQLite.execute_query(connection, insertar_inventario, inventario_tuple)
+                for producto in self.ids.rvs.data:
+                    nueva_cantidad = max(producto['cantidad_inventario'] - producto['cantidad_carrito'], 0)
+                    producto_tuple = (nueva_cantidad, producto['codigo'])
 
-        self.actualizar_productos(actualizar_admin)
+                    ventas_detalle_tuple = (
+                        venta_id,  # Usar el ID de la venta obtenido
+                        producto['precio'], 
+                        producto['codigo'], 
+                        producto['cantidad_carrito'], 
+                        ci_cliente
+                    )
+
+                    inventario_tuple = (
+                        producto['codigo'], 
+                        'venta', 
+                        producto['cantidad_carrito'], 
+                        self.ahora.strftime("%Y-%m-%d %H:%M:%S")
+                    )
+
+                    # Ejecutar las consultas
+                    cursor.execute(insertar_ventas_detalle, ventas_detalle_tuple)
+                    cursor.execute(actualizar_producto, producto_tuple)
+                    cursor.execute(insertar_inventario, inventario_tuple)
+
+                # Inserción del método de pago
+                metodo_pago_id = 1  # Suponiendo que es efectivo
+                insertar_ventas_pagos = """ 
+                INSERT INTO ventas_pagos (id_venta, metodo_pago_id, monto) 
+                VALUES (%s, %s, %s) 
+                """
+                ventas_pagos_tuple = (venta_id, metodo_pago_id, self.total)
+                cursor.execute(insertar_ventas_pagos, ventas_pagos_tuple)
+
+            # Commit de la transacción
+            connection.commit()
+
+        except Exception as e:
+            # En caso de error, revertir la transacción
+            connection.rollback()
+            print(f"Error durante la transacción: {e}")
+            self.ids.notificacion_falla.text = 'Error durante la transacción'
+
+        finally:
+            # Cerrar la conexión
+            connection.close()
+
+        # Actualiza el inventario en la interfaz
+        self.actualizar_productos([{'codigo': producto['codigo'], 'cantidad': nueva_cantidad} for producto in self.ids.rvs.data])
 
     def nueva_compra(self, desde_popup=False):
         if desde_popup:
@@ -434,8 +534,8 @@ class VentasWindow(BoxLayout):
             self.ids.admin_boton.opacity = 1
 
 class VentasApp(App):
-	def build(self):
-		return VentasWindow()
+    def build(self):
+        return VentasWindow()
 
 
 if __name__=='__main__':

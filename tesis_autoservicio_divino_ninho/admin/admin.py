@@ -277,10 +277,10 @@ class ProductoPopup(Popup):
         else:
             try:
                 numeric = int(producto_codigo)
-                validado['codigo_producto'] = producto_codigo
+                validado['codigo'] = producto_codigo
             except:
                 alert2 += 'Código no válido. '
-                validado['codigo_producto'] = False
+                validado['codigo'] = False
 
         if not producto_nombre:
             alert1 += 'Nombre. '
@@ -336,6 +336,7 @@ class ProductoPopup(Popup):
             WHERE codigo = %s
             """
             cursor.execute(actualizar_producto, (validado['nombre'], validado['precio'], validado['cantidad'], validado['codigo']))
+			
         else:
             # Si el producto no existe, insertarlo
             insertar_producto = """
@@ -986,7 +987,7 @@ class VistaVentas(Screen):
 			p.mostrar()
 
 	def cargar_venta(self, choice='Default'):
-		connection = QueriesSQLite.create_connection("pdvDB.sqlite")
+		connection = QueriesSQLite.create_connection()
 		valid_input=True
 		final_sum=0
 		f_inicio=datetime.strptime('01/01/00', '%d/%m/%y')
